@@ -906,13 +906,13 @@ void ACCEL_parse() {
   if (currentState == PRE_FLIGHT) {
     if (abs(verticalAccelMinusGravity) >= ACCEL_INT_THS) {
       integratedVelo += verticalAccelMinusGravity * (millis() - accelLast) / 1000.0;
-      accelLast = millis();
     } 
   } else {
     integratedVelo += verticalAccelMinusGravity * (millis() - accelLast) / 1000.0;
-    accelLast = millis();
   }
   fintx.velo = integratedVelo;
+  //FIX FROM FLIGHTS 1/2: accelLast should be updated regardless of aceeleration value
+  accelLast = millis();
 }
 
 

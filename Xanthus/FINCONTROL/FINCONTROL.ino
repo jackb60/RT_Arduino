@@ -266,6 +266,8 @@ void pidUpdate() {
   Note we use dpsY because the y axis on the gyro is alligned with the roll axis of rocket.
   */
   float velocity_pid = (rxpkt.velo < 20.0) ? 20 : rxpkt.velo;
+  //SAFEGUARD: Protect against absurdly high velocitites
+  float velocity_pid = (rxpkt.velo > 300.0) ? 300 : rxpkt.velo;
   float scaled_kP = kP * 10000 / pow(velocity_pid, 2);
   float scaled_kD = kD * 10000 / pow(velocity_pid, 2);
   /*
@@ -277,7 +279,8 @@ void pidUpdate() {
   As a sanity check, rocket at roll = 10 deg and zero angular velo,
   then pdOutput will be negative, so servos will drive CCW, causing rocket to roll CCW.
   */
-  float pdOutput = scaled_kP * (setpoint - pkt.roll) + scaled_kD * -pkt.dpsY * PI / 180.0;
+  //FIX: DO NOT SCALE scaled_kD by PI/180
+  float pdOutput = scaled_kP * (setpoint - pkt.roll) + scaled_kD * -pkt.dpsY;
 
   //Clip to -10 and 10 deg
   if (pdOutput > 10) {
