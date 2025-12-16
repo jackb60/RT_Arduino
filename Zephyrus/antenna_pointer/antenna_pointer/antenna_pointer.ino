@@ -48,30 +48,30 @@ void loop() {
         Serial.println("Checksum not met");
       }
 
-      azimuth_target_steps = round(azimuth_target * 200.0 * 50.0);
-      elevation_target_steps = round(elevation_target * 200.0 * 50.0);
+      azimuth_target_steps = round(azimuth_target * (1/1.8) * 50.0);
+      elevation_target_steps = round(elevation_target * (1/1.8) * 50.0);
     } else {
       Serial.read();
     }
   }
 
-  if(micros() - last_step_azimuth >= 1000){
-    if(azimuth_target_steps < azimuth_steps){
+  if(micros() - last_step_azimuth >= 3600){
+    if(azimuth_steps < azimuth_target_steps){
       drv_azimuth.fullStep(true);
       azimuth_steps ++;
       last_step_azimuth = micros();
-    } else if(azimuth_target_steps > azimuth_steps){
+    } else if(azimuth_steps > azimuth_target_steps){
       drv_azimuth.fullStep(false);
       azimuth_steps --;
       last_step_azimuth = micros();
     }
   }
-  if(micros() - last_step_elevation >= 1000){
-    if(elevation_target_steps < elevation_steps){
+  if(micros() - last_step_elevation >= 3600){
+    if(elevation_steps < elevation_target_steps){
       drv_elevation.fullStep(true);
       elevation_steps ++;
       last_step_elevation = micros();
-    } else if(elevation_target_steps > elevation_steps){
+    } else if(elevation_steps > elevation_target_steps){
       drv_elevation.fullStep(false);
       elevation_steps --;
       last_step_elevation = micros();
