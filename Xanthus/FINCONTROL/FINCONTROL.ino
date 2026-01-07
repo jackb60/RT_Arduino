@@ -267,7 +267,7 @@ void pidUpdate() {
   */
   float velocity_pid = (rxpkt.velo < 20.0) ? 20 : rxpkt.velo;
   //SAFEGUARD: Protect against absurdly high velocitites
-  float velocity_pid = (rxpkt.velo > 300.0) ? 300 : rxpkt.velo;
+  velocity_pid = (rxpkt.velo > 300.0) ? 300 : rxpkt.velo;
   float scaled_kP = kP * 10000 / pow(velocity_pid, 2);
   float scaled_kD = kD * 10000 / pow(velocity_pid, 2);
   /*
