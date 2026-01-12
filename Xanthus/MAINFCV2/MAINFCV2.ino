@@ -628,8 +628,8 @@ uint8_t calcChecksum() {
 #define ACCEL_FLIGHT_THS   30    //m/s^2
 #define T_APOGEE_LOCKOUT   7000  //msec
 #define T_APOGEE_OVERRIDE  13000 //msec
-#define T_DISREEF_LOCKOUT  4000 //msec (PAST T_APOGEE)
-#define T_DISREEF_OVERRIDE 8000 //msec (PAST T_APOGEE)
+#define T_DISREEF_LOCKOUT  2000 //msec (PAST T_APOGEE)
+#define T_DISREEF_OVERRIDE 2000 //msec (PAST T_APOGEE)
 #define APOGEE_DROP        20    //m
 #define DISREEF_DROP       150   //m
 
@@ -667,7 +667,7 @@ void handleState() {
       if (currentState == APOGEE) {                                                                 //If we advanced to apogee
         apogeeTime = millis();                                                                      //Mark time apogee mode entered
         flightTime = millis();
-        for (uint8_t i = 1; i < 5; i++) {                                                           //Fire pyros at headers 1, 2, 3, 4
+        for (uint8_t i = 0; i < 6; i++) {                                                           //Fire pyros at headers 0, 1, 2, 3, 4, 5
           armPyro(i);
           firePyro(i);
         }
@@ -685,7 +685,7 @@ void handleState() {
         currentState = DISREEF;                                                                     //Advance to Disreef mode
       }
       if (currentState == DISREEF) {                                                                //If we advanced to Disreef
-        for (uint8_t i = 5; i < 7; i++) {                                                           //Fire pyros at headers 5, 6
+        for (uint8_t i = 6; i < 8; i++) {                                                           //Fire pyros at headers 6, 7
           armPyro(i);
           firePyro(i);
         }
