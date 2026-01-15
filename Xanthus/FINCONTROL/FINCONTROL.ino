@@ -23,7 +23,7 @@
 #define OFFSET1 -19 //CHANNEL 1 (PA8, HEADER 7, RED WIRE)
 #define OFFSET2 -7 //CHANNEL 2 (PA9, HEADER 6, ALL BLACK WIRES)
 
-#define setpoint 0.0
+float setpoint = 0.0;
 
 #define kP 0.2600
 #define kD 0.0520
@@ -44,6 +44,10 @@ struct fin2 {
 fin2 rxpkt;
 
 uint8_t rxData [sizeof(rxpkt) * 2 - 1];
+
+bool prevPD = false;
+
+unsigned long manStartTime;
 
 struct downlink {
   //MAG
@@ -137,6 +141,16 @@ void loop() {
     pkt.roll = 0.0;
     rxpkt.zeroRoll = false;
   }
+
+  //Detect if we entered into PD mode
+  if (rxpkt.servoState == SERVO_PD && !prevPD) {
+    manStartTime = millis();
+    prevPD = true;
+  } else if (rxpkt.servoState != SERVO_PD) {
+    prevPD = false;
+  }
+
+  maneuverUpdate();
 
   if (millis() - last2 > 4) {
     //DEBUG_SER.println("SLOW");
@@ -289,4 +303,19 @@ void pidUpdate() {
     pdOutput = -10.0;
   }
   setServos(pdOutput);
+}
+
+void maneuverUpdate() {
+  if ((millis() - manStartTime >= 0) && (millis() - manStartTime < 750)) {
+    setpoint = 0;
+  }
+  else if ((millis() - manStartTime >= 750) && (millis() - manStartTime < 4000)) {
+    setpoint = 90.0;
+  }
+  else if ((millis() - manStartTime >= 4000) && (millis() - manStartTime < 6000)) {
+    setpoint = 0;
+  }
+  else if (millis() - manStartTime >= 6000) {
+    setpoint = 90.0;
+  }
 }
