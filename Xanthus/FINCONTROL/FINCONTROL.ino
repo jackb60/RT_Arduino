@@ -98,8 +98,8 @@ void setup() {
   myTim->setCaptureCompare(1, degToUs(OFFSET1), MICROSEC_COMPARE_FORMAT);
   myTim->setCaptureCompare(2, degToUs(OFFSET2), MICROSEC_COMPARE_FORMAT);
   myTim->attachInterrupt(Update_IT_callback);
-  pkt.us_on_6 = degToUs(OFFSET1);
-  pkt.us_on_7 = degToUs(OFFSET2);
+  pkt.us_on_6 = degToUs(OFFSET2);
+  pkt.us_on_7 = degToUs(OFFSET1);
   myTim->resume();
 }
 void loop() {
@@ -197,8 +197,8 @@ void Update_IT_callback() {
 void setServos(float degrees) {
   myTim->setCaptureCompare(1, degToUs(degrees + OFFSET1), MICROSEC_COMPARE_FORMAT);
   myTim->setCaptureCompare(2, degToUs(degrees + OFFSET2), MICROSEC_COMPARE_FORMAT);
-  pkt.us_on_6 = degToUs(degrees + OFFSET1);
-  pkt.us_on_7 = degToUs(degrees + OFFSET2);
+  pkt.us_on_6 = degToUs(degrees + OFFSET2);
+  pkt.us_on_7 = degToUs(degrees + OFFSET1);
 }
 
 uint16_t degToUs(float degrees) {
