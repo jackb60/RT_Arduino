@@ -33,6 +33,12 @@ long last_step_azimuth;
 unsigned long el_interval = 3600;
 unsigned long az_interval = 3600;
 
+unsigned long newStepsAz = 0;
+unsigned long newStepsEl = 0;
+
+unsigned long pastTAz = 0;
+unsigned long pastTEl = 0;
+
 void setup() {
   Serial.begin(115200);
   SPI_3.begin();
@@ -93,8 +99,14 @@ void loop() {
       elevation_target_steps = round(elevation_target * (1/1.8) * 50.0 * 4.0);
       shortest_path();
 
-      el_interval = 2000;
-      az_interval = 2000;
+      newStepsAz = 0;
+      newStepsEl = 0;
+
+      pastTAz = 0;
+      pastTEl = 0;
+
+      az_adjust();
+      el_adjust();
       
     } else {
       Serial.read();
@@ -105,26 +117,30 @@ void loop() {
     if(azimuth_steps < azimuth_target_steps){
       drv_azimuth.fullStep(true);
       azimuth_steps ++;
+      newStepsAz ++;
       last_step_azimuth = micros();
-      if (az_interval > 1000) { az_interval -= 10; };
+      if (az_interval > 1000) { az_adjust(); };
     } else if(azimuth_steps > azimuth_target_steps){
       drv_azimuth.fullStep(false);
       azimuth_steps --;
+      newStepsAz ++;
       last_step_azimuth = micros();
-      if (az_interval > 1000) { az_interval -= 10; };
+      if (az_interval > 1000) { az_adjust(); };
     }
   }
   if(micros() - last_step_elevation >= el_interval){
     if(elevation_steps < elevation_target_steps){
       drv_elevation.fullStep(true);
       elevation_steps ++;
+      newStepsEl ++;
       last_step_elevation = micros();
-      if (el_interval > 1000) { el_interval -= 10; };
+      if (el_interval > 1000) { el_adjust(); };
     } else if(elevation_steps > elevation_target_steps){
       drv_elevation.fullStep(false);
       elevation_steps --;
+      newStepsEl ++;
       last_step_elevation = micros();
-      if (el_interval > 1000) { el_interval -= 10; };
+      if (el_interval > 1000) { el_adjust(); };
     }
   }
   
@@ -138,4 +154,24 @@ void shortest_path(){
       azimuth_target_steps += 4 * 10000; //increase 360deg
     }
   }
+}
+
+/*
+Given constant angular acceleration, max deg (t) = 0.5 * a * (t^2)
+To find the next time, we solve for t: t = sqrt(2 * max deg / a)
+
+From spreadsheet: with 2 Nm motor toque our max angular acceleration is 1255 deg/s^2
+So t = sqrt(2 * max deg / 1255)
+*/ 
+
+void az_adjust() {
+  unsigned long newT = sqrt((2.0 * ((newStepsAz + 1)/ 4.0) / 1255.0)) * 1000000.0;
+  az_interval = newT - pastTAz;
+  pastTAz = newT;
+}
+
+void el_adjust() {
+  unsigned long newT = sqrt((2.0 * ((newStepsEl + 1)/ 4.0) / 1255.0)) * 1000000.0;
+  el_interval = newT - pastTEl;
+  pastTEl = newT;
 }
