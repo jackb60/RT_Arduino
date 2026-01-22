@@ -448,7 +448,7 @@ void handleAirbrakesState() {
   }
   // plateau
   else if (state == CONTROLLING_PLATEAU) {
-    // servo is already
+    setAirbrakesServo(A0_req);
     if (status.vel_z <= 0.0f || status.apogeeReached) {
       state = DONE;
       setAirbrakesServo(0.0f);
