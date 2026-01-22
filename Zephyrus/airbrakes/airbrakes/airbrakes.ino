@@ -25,14 +25,14 @@ typedef struct {
 } AirbrakesAccelerationMeasurement;
 
 /* Constructors */
-static inline AirbrakesVelocityMeasurement AirbrakesVelocityMeasurement_init(float ts, float vm) {
+AirbrakesVelocityMeasurement AirbrakesVelocityMeasurement_init(float ts, float vm) {
   AirbrakesVelocityMeasurement m;
   m.timeStamp = ts;
   m.velocityMeasurement = vm;
   return m;
 }
 
-static inline AirbrakesAccelerationMeasurement AirbrakesAccelerationMeasurement_init(float ts, float am) {
+AirbrakesAccelerationMeasurement AirbrakesAccelerationMeasurement_init(float ts, float am) {
   AirbrakesAccelerationMeasurement m;
   m.timeStamp = ts;
   m.accelerationMeasurement = am;
@@ -60,71 +60,71 @@ typedef enum {
 } AirbrakesControllerState;
 
 /* ------------------ Globals ------------------ */
-static AirbrakesControllerState state = DISABLED;
+AirbrakesControllerState state = DISABLED;
 
-static const float g = 9.81f;
+const float g = 9.81f;
 
-static float mass        = 51.75379038f;
-static float rho         = 0.82826203f;
-static float airbrakesCd = 1.28f;
-static float a_max       = 0.0066f;
-static float fudge_factor   = 3.2f;
-static float fudge_factor_2 = 3.5f;
+float mass        = 51.75379038f;
+float rho         = 0.82826203f;
+float airbrakesCd = 1.28f;
+float a_max       = 0.0066f;
+float fudge_factor   = 3.2f;
+float fudge_factor_2 = 3.5f;
 
-static float EARLIEST_START_AIRBRAKES_PREP_TIME = 4.0f;
-static float START_AIRBRAKES_PREP_VEL           = 400.0f;
-static float START_AIRBRAKES_PREPROC_TIME       = 12.5f;
-static float AIRBRAKES_TIME_DELAY               = 1.0f;
-static float AIRBRAKES_T_APOG_FUDGEDIFF         = 1.5f;
+float EARLIEST_START_AIRBRAKES_PREP_TIME = 4.0f;
+float START_AIRBRAKES_PREP_VEL           = 400.0f;
+float START_AIRBRAKES_PREPROC_TIME       = 12.5f;
+float AIRBRAKES_TIME_DELAY               = 1.0f;
+float AIRBRAKES_T_APOG_FUDGEDIFF         = 1.5f;
 
-static int   roundToHowMuch = 100;
+int   roundToHowMuch = 100;
 
-static float t_apog   = 35.5f;
-static float coeffA   = -0.0154397511f;
-static float coeffB   = -0.3379534959f;
+float t_apog   = 35.5f;
+float coeffA   = -0.0154397511f;
+float coeffB   = -0.3379534959f;
 
-static float alt0          = 0.0f;
-static float predictedAlt  = 0.0f;
-static float desiredDeltaX = 0.0f;
+float alt0          = 0.0f;
+float predictedAlt  = 0.0f;
+float desiredDeltaX = 0.0f;
 
-static float airbrakesCtrlStartTime = 1e10f;
-static float A0_req = 0.0f;
+float airbrakesCtrlStartTime = 1e10f;
+float A0_req = 0.0f;
 
 /* live rocket values !!! REPLACE IN LOOP W TELEMETRY */
-static float currentRocketVel   = 0.0f;
-static float currentRocketAccel = 0.0f;
-static bool  apogeeReached      = false;
+float currentRocketVel   = 0.0f;
+float currentRocketAccel = 0.0f;
+bool  apogeeReached      = false;
 
 /* data collection */
-static AirbrakesAccelerationMeasurement accelData[AIRBRAKES_N_MEASUREMENTS];
-static AirbrakesVelocityMeasurement     velData[AIRBRAKES_N_MEASUREMENTS];
+AirbrakesAccelerationMeasurement accelData[AIRBRAKES_N_MEASUREMENTS];
+AirbrakesVelocityMeasurement     velData[AIRBRAKES_N_MEASUREMENTS];
 
 /* counters */
-static int datIndex = 0;
-static int counter  = 0;
+int datIndex = 0;
+int counter  = 0;
 
 /* ------------------ Helpers (declare before use) ------------------ */
 
-static inline float maxf(float a, float b) { return (a > b) ? a : b; }
+float maxf(float a, float b) { return (a > b) ? a : b; }
 
 /* Fast integer-power helpers */
-static inline float p4(float x){ float x2=x*x; return x2*x2; }
-static inline float p5(float x){ return p4(x)*x; }
-static inline float p6(float x){ float x3=x*x*x; return x3*x3; }
-static inline float p7(float x){ return p6(x)*x; }
-static inline float p8(float x){ float x4=p4(x); return x4*x4; }
-static inline float p9(float x){ return p8(x)*x; }
-static inline float p10(float x){ float x5=p5(x); return x5*x5; }
+float p4(float x){ float x2=x*x; return x2*x2; }
+float p5(float x){ return p4(x)*x; }
+float p6(float x){ float x3=x*x*x; return x3*x3; }
+float p7(float x){ return p6(x)*x; }
+float p8(float x){ float x4=p4(x); return x4*x4; }
+float p9(float x){ return p8(x)*x; }
+float p10(float x){ float x5=p5(x); return x5*x5; }
 
-static inline float pow5f_fast(float x){ return p5(x); }
-static inline float pow10f_fast(float x){ return p10(x); }
+float pow5f_fast(float x){ return p5(x); }
+float pow10f_fast(float x){ return p10(x); }
 
 /* Avoid Arduino macro collision with sq() by using different names */
-static inline float sqf_local(float x) { return x * x; }
-static inline float cubef_local(float x) { return x * x * x; }
-static inline float pow4f_local(float x) { float x2 = x*x; return x2*x2; }
+float sqf_local(float x) { return x * x; }
+float cubef_local(float x) { return x * x * x; }
+float pow4f_local(float x) { float x2 = x*x; return x2*x2; }
 
-static bool inverse2x2Matrix(const float A[2][2], float Ainv[2][2]) {
+bool inverse2x2Matrix(const float A[2][2], float Ainv[2][2]) {
   float a = A[0][0], b = A[0][1];
   float c = A[1][0], d = A[1][1];
   float det = a*d - b*c;
@@ -144,12 +144,12 @@ static bool inverse2x2Matrix(const float A[2][2], float Ainv[2][2]) {
 }
 
 /* Flight time in seconds */
-static float getFlightTime() {
+float getFlightTime() {
   return millis() * 0.001f;  // FIXED (seconds)
 }
 
 /* actuator command */
-static void setAirbrakesServo(float deployedFraction) {
+void setAirbrakesServo(float deployedFraction) {
   if (deployedFraction < 0.0f) deployedFraction = 0.0f;
   if (deployedFraction > 1.0f) deployedFraction = 1.0f;
   // TODO: implement servo write
@@ -157,12 +157,12 @@ static void setAirbrakesServo(float deployedFraction) {
 }
 
 /* models */
-static float accelModel(float t, float a, float custom_t_apog) {
+float accelModel(float t, float a, float custom_t_apog) {
   float dt = t - custom_t_apog;
   return a * pow5f_fast(dt) - g;
 }
 
-static float getR2fromFit_accel(const AirbrakesAccelerationMeasurement *data,
+float getR2fromFit_accel(const AirbrakesAccelerationMeasurement *data,
                                 size_t n,
                                 float a,
                                 float custom_t_apog)
@@ -191,7 +191,7 @@ static float getR2fromFit_accel(const AirbrakesAccelerationMeasurement *data,
   return 1.0f - (ss_res / ss_tot);
 }
 
-static int argmax(const float *arr, size_t n) {
+int argmax(const float *arr, size_t n) {
   if (!arr || n == 0) return -1;
   float best = arr[0];
   int idx = 0;
@@ -202,7 +202,7 @@ static int argmax(const float *arr, size_t n) {
 }
 
 /* printing helper */
-static void printFloatArray3(const char *label, const float a[3]) {
+void printFloatArray3(const char *label, const float a[3]) {
   Serial.print(label);
   Serial.print("[");
   Serial.print(a[0], 4); Serial.print(", ");
@@ -212,7 +212,7 @@ static void printFloatArray3(const char *label, const float a[3]) {
 }
 
 /* calculate the area needed for airbrakes */
-static float reqDeployedAreaAirbrakes(float t_0, float deltaX)
+float reqDeployedAreaAirbrakes(float t_0, float deltaX)
 {
   float a  = coeffA;
   float b  = coeffB;
@@ -247,7 +247,7 @@ static float reqDeployedAreaAirbrakes(float t_0, float deltaX)
 }
 
 /* estimates */
-static float getVelocityEstimate(float t)
+float getVelocityEstimate(float t)
 {
   float dt = t - t_apog;
   return coeffA * cubef_local(dt)
@@ -255,7 +255,7 @@ static float getVelocityEstimate(float t)
        - g * dt;
 }
 
-static float getAltitudeEstimate(float t, float alt0_local)
+float getAltitudeEstimate(float t, float alt0_local)
 {
   float dt = t - t_apog;
   return coeffA * pow4f_local(dt) / 4.0f
@@ -264,24 +264,24 @@ static float getAltitudeEstimate(float t, float alt0_local)
        + alt0_local;
 }
 
-static float getAltitudeEstimate(float t)
+float getAltitudeEstimate(float t)
 {
   return getAltitudeEstimate(t, alt0);
 }
 
 /* start conditions */
-static bool shouldStartAirbrakesControlPrep() {
+bool shouldStartAirbrakesControlPrep() {
   return (getFlightTime() > EARLIEST_START_AIRBRAKES_PREP_TIME) &&
          (!apogeeReached) &&
          (currentRocketVel < START_AIRBRAKES_PREP_VEL);
 }
 
-static bool shouldStartAirbrakesControlPreprocess() {
+bool shouldStartAirbrakesControlPreprocess() {
   return (getFlightTime() > START_AIRBRAKES_PREPROC_TIME) &&
          (!apogeeReached);
 }
 
-static handleAirbrakesState() {
+void handleAirbrakesState() {
   RocketStatus status;
   status.altitude      = 0.0f;
   status.vel_z         = currentRocketVel;
