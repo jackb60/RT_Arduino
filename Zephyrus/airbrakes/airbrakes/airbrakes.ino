@@ -453,7 +453,7 @@ void handleAirbrakesState() {
 
     float desiredAlt = 6275.0f; //floorf(predictedAlt / (float)roundToHowMuch) * (float)roundToHowMuch;
     desiredDeltaX = predictedAlt - desiredAlt;
-    HWSerial.print("Current Altitude: "); HWSerial.println(status.altitude, 6);
+    HWSerial.print("Current Altitude: "); HWSerial.println(currentRocketAlt, 6);
     HWSerial.print("Desired Altitude: "); HWSerial.println(desiredAlt, 6);
     HWSerial.print("Predicted Altitude: "); HWSerial.println(predictedAlt, 6);
     HWSerial.print("Aiming for ∆X Altitude: "); HWSerial.println(desiredDeltaX, 6);
