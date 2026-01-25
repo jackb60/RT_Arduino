@@ -100,6 +100,7 @@ float A0_req = 0.0f;
 float currentRocketVel   = 0.0f;
 float currentRocketAccel = 0.0f;
 bool  apogeeReached      = false;
+float currentRocketAlt   = 0.0f;
 
 float lastTimeStamp      = 0;
 
@@ -566,6 +567,10 @@ void loop() {
             case 0x03:
               simEnabled = true;
               startTime = millis();
+              break;
+            case 0x04:
+              memcpy(&currentRocketAlt, &data[2], 4);
+              break;
           }
         }
       } else {
