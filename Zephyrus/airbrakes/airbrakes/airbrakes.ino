@@ -3,13 +3,15 @@
 // MIT RT SIMULATIONS JAN 2026
 
 
-#include <Arduino.h>
+
 #include <math.h>
 #include <stddef.h>
 
+HardwareSerial HWSerial(PA1, PA0);
+
 /* ------------------ Compile-time constants ------------------ */
 #define AIRBRAKES_N_MEASUREMENTS         13
-#define AIRBRAKES_MEASUREMENT_FREQ_HZ     2.5
+#define AIRBRAKES_MEASUREMENT_FREQ_HZ     2.3
 #define AIRBRAKES_SIMULATION_T_APOG      34.0f
 #define DEBUG_AIRBRAKES_ON               0
 #define LOOP_FREQ                        100
@@ -167,7 +169,7 @@ float getFlightTime() {
 void setAirbrakesServo(float deployedFraction) {
   if (deployedFraction < 0.0f) deployedFraction = 0.0f;
   if (deployedFraction > 1.0f) deployedFraction = 1.0f;
-  Serial.println(deployedFraction);
+  HWSerial.println(deployedFraction);
   globalDP = deployedFraction;
 }
 
@@ -218,12 +220,12 @@ int argmax(const float *arr, size_t n) {
 
 /* printing helper */
 void printFloatArray3(const char *label, const float a[3]) {
-  Serial.print(label);
-  Serial.print("[");
-  Serial.print(a[0], 4); Serial.print(", ");
-  Serial.print(a[1], 4); Serial.print(", ");
-  Serial.print(a[2], 4);
-  Serial.println("]");
+  HWSerial.print(label);
+  HWSerial.print("[");
+  HWSerial.print(a[0], 4); HWSerial.print(", ");
+  HWSerial.print(a[1], 4); HWSerial.print(", ");
+  HWSerial.print(a[2], 4);
+  HWSerial.println("]");
 }
 
 /* calculate the area needed for airbrakes */
@@ -318,9 +320,9 @@ void handleAirbrakesState() {
     if (state == PREP) {
       datIndex = 0;
       counter = 0;
-      Serial.println("[Airbrakes] Entering PREP");
-      Serial.print("[Airbrakes] Current Time: ");
-      Serial.println(currentTime, 4);
+      HWSerial.println("[Airbrakes] Entering PREP");
+      HWSerial.print("[Airbrakes] Current Time: ");
+      HWSerial.println(currentTime, 4);
     }
   }
 
@@ -341,34 +343,34 @@ void handleAirbrakesState() {
       counter = 0;
 
       for (int i = 0; i < nMeasurements; i++) {
-        Serial.print("[Airbrakes] Data "); Serial.print(i); Serial.print(": Vel=");
-        Serial.print(velData[i].velocityMeasurement, 4);
-        Serial.print(" @ "); Serial.print(velData[i].timeStamp, 4);
-        Serial.print(" | Accel=");
-        Serial.print(accelData[i].accelerationMeasurement, 4);
-        Serial.print(" @ "); Serial.println(accelData[i].timeStamp, 4);
+        HWSerial.print("[Airbrakes] Data "); HWSerial.print(i); HWSerial.print(": Vel=");
+        HWSerial.print(velData[i].velocityMeasurement, 4);
+        HWSerial.print(" @ "); HWSerial.print(velData[i].timeStamp, 4);
+        HWSerial.print(" | Accel=");
+        HWSerial.print(accelData[i].accelerationMeasurement, 4);
+        HWSerial.print(" @ "); HWSerial.println(accelData[i].timeStamp, 4);
       }
 
-      Serial.println("[Airbrakes] Entering PREPROCESS (data collected)");
-      Serial.print("[Airbrakes] Current Time: ");
-      Serial.println(currentTime, 4);
+      HWSerial.println("[Airbrakes] Entering PREPROCESS (data collected)");
+      HWSerial.print("[Airbrakes] Current Time: ");
+      HWSerial.println(currentTime, 4);
     } else {
       state = shouldStartAirbrakesControlPreprocess() ? PREPROCESS : PREP;
       if (state == PREPROCESS) {
 
         for (int i = 0; i < nMeasurements; i++) {
-          Serial.print("[Airbrakes] Data "); Serial.print(i); Serial.print(": Vel=");
-          Serial.print(velData[i].velocityMeasurement, 4);
-          Serial.print(" @ "); Serial.print(velData[i].timeStamp, 4);
-          Serial.print(" | Accel=");
-          Serial.print(accelData[i].accelerationMeasurement, 4);
-          Serial.print(" @ "); Serial.println(accelData[i].timeStamp, 4);
+          HWSerial.print("[Airbrakes] Data "); HWSerial.print(i); HWSerial.print(": Vel=");
+          HWSerial.print(velData[i].velocityMeasurement, 4);
+          HWSerial.print(" @ "); HWSerial.print(velData[i].timeStamp, 4);
+          HWSerial.print(" | Accel=");
+          HWSerial.print(accelData[i].accelerationMeasurement, 4);
+          HWSerial.print(" @ "); HWSerial.println(accelData[i].timeStamp, 4);
         }
         
         counter = 0;
-        Serial.println("[Airbrakes] Entering PREPROCESS (time's up)");
-        Serial.print("[Airbrakes] Current Time: ");
-        Serial.println(currentTime, 4);
+        HWSerial.println("[Airbrakes] Entering PREPROCESS (time's up)");
+        HWSerial.print("[Airbrakes] Current Time: ");
+        HWSerial.println(currentTime, 4);
       }
     }
   }
@@ -404,8 +406,8 @@ void handleAirbrakesState() {
     float best_t = (best_idx >= 0) ? t_apog_trials[(size_t)best_idx] : AIRBRAKES_SIMULATION_T_APOG;
     t_apog = best_t + AIRBRAKES_T_APOG_FUDGEDIFF;
 
-    Serial.print("[Airbrakes] Choosing t_apog = ");
-    Serial.println(t_apog, 4);
+    HWSerial.print("[Airbrakes] Choosing t_apog = ");
+    HWSerial.println(t_apog, 4);
 
     // Fit velocity coefficients
     float XT_X[2][2] = {{0.0f, 0.0f}, {0.0f, 0.0f}};
@@ -433,7 +435,7 @@ void handleAirbrakesState() {
 
     float XT_X_inv[2][2];
     if (!inverse2x2Matrix(XT_X, XT_X_inv)) {
-      Serial.println("[Airbrakes] XT_X singular -> INFEASIBLE");
+      HWSerial.println("[Airbrakes] XT_X singular -> INFEASIBLE");
       state = INFEASIBLE;
       return;
     }
@@ -441,8 +443,8 @@ void handleAirbrakesState() {
     coeffA = XT_X_inv[0][0] * XT_y[0] + XT_X_inv[0][1] * XT_y[1];
     coeffB = XT_X_inv[1][0] * XT_y[0] + XT_X_inv[1][1] * XT_y[1];
 
-    Serial.print("[Airbrakes] Velocity fit: a="); Serial.print(coeffA, 6);
-    Serial.print(" b="); Serial.println(coeffB, 6);
+    HWSerial.print("[Airbrakes] Velocity fit: a="); HWSerial.print(coeffA, 6);
+    HWSerial.print(" b="); HWSerial.println(coeffB, 6);
 
     alt0 = status.altitude - getAltitudeEstimate(getFlightTime());
     predictedAlt = getAltitudeEstimate(t_apog);
@@ -454,8 +456,8 @@ void handleAirbrakesState() {
     airbrakesCtrlStartTime = currentTime + AIRBRAKES_TIME_DELAY;
 
     if (A0_req > 1.0f) {
-      Serial.print("[Airbrakes] Req A="); Serial.print(A0_req, 3);
-      Serial.println(" > 1.0 (infeasible)");
+      HWSerial.print("[Airbrakes] Req A="); HWSerial.print(A0_req, 3);
+      HWSerial.println(" > 1.0 (infeasible)");
       if (DEBUG_AIRBRAKES_ON) {
         A0_req = 1.0f;
         state = WAIT_FOR_START;
@@ -463,9 +465,9 @@ void handleAirbrakesState() {
         state = INFEASIBLE;
       }
     } else {
-      Serial.println("[Airbrakes] Reaching Apogee is Feasible");
-      Serial.print("A0_req="); Serial.println(A0_req, 3);
-      Serial.print("[Airbrakes] Desired start time: "); Serial.println(airbrakesCtrlStartTime, 3);
+      HWSerial.println("[Airbrakes] Reaching Apogee is Feasible");
+      HWSerial.print("A0_req="); HWSerial.println(A0_req, 3);
+      HWSerial.print("[Airbrakes] Desired start time: "); HWSerial.println(airbrakesCtrlStartTime, 3);
       state = WAIT_FOR_START;
     }
   }
@@ -473,9 +475,9 @@ void handleAirbrakesState() {
   else if (state == WAIT_FOR_START) {
     if (getFlightTime() >= airbrakesCtrlStartTime) {
       state = CONTROLLING_RAMP;
-      Serial.println("[Airbrakes] Beginning control");
-      Serial.print("[Airbrakes] Current Time: ");
-      Serial.println(currentTime, 4);
+      HWSerial.println("[Airbrakes] Beginning control");
+      HWSerial.print("[Airbrakes] Current Time: ");
+      HWSerial.println(currentTime, 4);
     }
     
   }
@@ -514,17 +516,17 @@ void Update_IT_callback() {
 
 /* ------------------ Arduino entry points ------------------ */
 void setup() {
-  //Serial.setTx(PA0);
-  //Serial.setRx(PA1);
+  //HWSerial.setTx(PA0);
+  //HWSerial.setRx(PA1);
   myTim->setMode(1, TIMER_OUTPUT_COMPARE_PWM1, PA8);
   myTim->setOverflow(20000, MICROSEC_FORMAT);
   myTim->setCaptureCompare(1, deployToUs(0), MICROSEC_COMPARE_FORMAT);
   myTim->attachInterrupt(Update_IT_callback);
   myTim->resume();
 
-  Serial.begin(115200);
-  while (!Serial) { ; }
-  Serial.println("Airbrakes controller starting...");
+  HWSerial.begin(115200);
+  while (!HWSerial) { ; }
+  HWSerial.println("Airbrakes controller starting...");
 }
 
 void loop() {
@@ -532,12 +534,12 @@ void loop() {
   if(millis()-lastTimeStamp >= 1000.0f/LOOP_FREQ) {
 
     // READ TELEMETRY
-
-    if (Serial.available() >= 7) {
-      if(Serial.peek() == 0xAA){
+    
+    while (HWSerial.available() >= 7) {
+      if(HWSerial.peek() == 0xAA){
         int n = 6; // size of the packet
         uint8_t data[n+1];
-        Serial.readBytes((char*)data, n+1);
+        HWSerial.readBytes((char*)data, n+1);
         uint8_t checksum = 0;
         for(int i = 1; i < n; i++){
           checksum += data[i];
@@ -560,15 +562,15 @@ void loop() {
           }
         }
       } else {
-        Serial.read();
+        HWSerial.read();
       }
       /*
-      Serial.print("VELO: ");
-      Serial.println(currentRocketVel);
-      Serial.print("ACCEL: ");
-      Serial.println(currentRocketAccel);
-      Serial.print("APOGEE: ");
-      Serial.println(apogeeReached);
+      HWSerial.print("VELO: ");
+      HWSerial.println(currentRocketVel);
+      HWSerial.print("ACCEL: ");
+      HWSerial.println(currentRocketAccel);
+      HWSerial.print("APOGEE: ");
+      HWSerial.println(apogeeReached);
       */
     }
 
