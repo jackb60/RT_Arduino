@@ -50,9 +50,13 @@ void loop() {
     setAirbrakesServo(deployedFraction);
   }
   else {
+    Serial.println(servoAngle);
     if (Serial.available()) {
       int angle = Serial.parseInt();
-      if(angle > 0 && angle <= 180) {
+      while (Serial.available()) {
+        Serial.read();
+      }
+      if(angle >= -180 && angle <= 180) {
         servoAngle = (angle);
         Serial.print("Servo moved to: ");
         Serial.println(angle);

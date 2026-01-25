@@ -7,7 +7,7 @@
 #include <math.h>
 #include <stddef.h>
 
-HardwareSerial HWSerial(PA1, PA0);
+HardwareSerial HWSerial(PA10, PA9);
 
 /* ------------------ Compile-time constants ------------------ */
 #define AIRBRAKES_N_MEASUREMENTS         13
@@ -454,7 +454,7 @@ void handleAirbrakesState() {
     desiredDeltaX = predictedAlt - desiredAlt;
 
     bool tooLate = currentTime > AIRBRAKES_START_TIME - 0.25;
-    airbrakesCtrlStartTime = tooLate : currentTime + AIRBRAKES_TIME_DELAY ? AIRBRAKES_START_TIME;
+    airbrakesCtrlStartTime = tooLate ? currentTime + AIRBRAKES_TIME_DELAY : AIRBRAKES_START_TIME;
     A0_req = reqDeployedAreaAirbrakes(airbrakesCtrlStartTime, desiredDeltaX);
 
     if (A0_req > 1.0f) {
@@ -507,7 +507,7 @@ void handleAirbrakesState() {
 }
 
 uint16_t deployToUs(float dp) {
-  return 1500 + (1.0 / .15) * (dp * 60.0);
+  return 1500 + (1.0 / .15) * (dp * 80.0 - 40.0);
 }
 
 void Update_IT_callback() {
