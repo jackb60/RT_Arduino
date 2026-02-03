@@ -7,14 +7,15 @@
 #include <math.h>
 #include <stddef.h>
 
-HardwareSerial HWSerial(PA1, PA0);
+HardwareSerial HWSerial(PA10, PA9);
 
 /* ------------------ Compile-time constants ------------------ */
 #define AIRBRAKES_N_MEASUREMENTS         13
-#define AIRBRAKES_MEASUREMENT_FREQ_HZ     2.3
+#define AIRBRAKES_MEASUREMENT_FREQ_HZ    2
 #define AIRBRAKES_SIMULATION_T_APOG      34.0f
 #define DEBUG_AIRBRAKES_ON               0
 #define LOOP_FREQ                        100
+#define AIRBRAKES_START_TIME             13.0f // seconds
 
 /* ------------------ Measurements types ------------------ */
 typedef struct {
@@ -99,6 +100,7 @@ float A0_req = 0.0f;
 float currentRocketVel   = 0.0f;
 float currentRocketAccel = 0.0f;
 bool  apogeeReached      = false;
+float currentRocketAlt   = 1.0f;
 
 float lastTimeStamp      = 0;
 
@@ -316,6 +318,7 @@ void handleAirbrakesState() {
 
   // DISABLED : awaiting start of prep (data collection)
   if (state == DISABLED) {
+    //HWSerial.print("[Airbrakes] Status:  DISABLED                 \r");
     state = shouldStartAirbrakesControlPrep() ? PREP : DISABLED;
     if (state == PREP) {
       datIndex = 0;
@@ -445,15 +448,21 @@ void handleAirbrakesState() {
 
     HWSerial.print("[Airbrakes] Velocity fit: a="); HWSerial.print(coeffA, 6);
     HWSerial.print(" b="); HWSerial.println(coeffB, 6);
-
-    alt0 = status.altitude - getAltitudeEstimate(getFlightTime());
+    HWSerial.print("[Airbrakes] Current Altitude: "); HWSerial.print(currentRocketAlt, 6);
+    HWSerial.print(" @ "); HWSerial.println(getFlightTime(), 6);
+    alt0 = currentRocketAlt - getAltitudeEstimate(getFlightTime());
     predictedAlt = getAltitudeEstimate(t_apog);
 
-    float desiredAlt = floorf(predictedAlt / (float)roundToHowMuch) * (float)roundToHowMuch;
+    float desiredAlt = 6275.0f; //floorf(predictedAlt / (float)roundToHowMuch) * (float)roundToHowMuch;
     desiredDeltaX = predictedAlt - desiredAlt;
+    HWSerial.print("[Airbrakes] Predicted Altitude: "); HWSerial.println(predictedAlt, 6);
+    HWSerial.print("[Airbrakes] Desired Altitude: "); HWSerial.println(desiredAlt, 6);
+    HWSerial.print("[Airbrakes] Aiming for ∆X in Altitude: "); HWSerial.println(desiredDeltaX, 6);
 
-    A0_req = reqDeployedAreaAirbrakes(currentTime + AIRBRAKES_TIME_DELAY, desiredDeltaX);
-    airbrakesCtrlStartTime = currentTime + AIRBRAKES_TIME_DELAY;
+
+    bool tooLate = currentTime > AIRBRAKES_START_TIME - 0.25;
+    airbrakesCtrlStartTime = tooLate ? currentTime + AIRBRAKES_TIME_DELAY : AIRBRAKES_START_TIME;
+    A0_req = reqDeployedAreaAirbrakes(airbrakesCtrlStartTime, desiredDeltaX);
 
     if (A0_req > 1.0f) {
       HWSerial.print("[Airbrakes] Req A="); HWSerial.print(A0_req, 3);
@@ -466,7 +475,7 @@ void handleAirbrakesState() {
       }
     } else {
       HWSerial.println("[Airbrakes] Reaching Apogee is Feasible");
-      HWSerial.print("A0_req="); HWSerial.println(A0_req, 3);
+      HWSerial.print("[Airbrakes] A0_req="); HWSerial.println(A0_req, 3);
       HWSerial.print("[Airbrakes] Desired start time: "); HWSerial.println(airbrakesCtrlStartTime, 3);
       state = WAIT_FOR_START;
     }
@@ -505,7 +514,7 @@ void handleAirbrakesState() {
 }
 
 uint16_t deployToUs(float dp) {
-  return 1500 + (1.0 / .15) * (dp * 60.0);
+  return 1500 + (1.0 / .15) * (dp * 80.0 - 40.0);
 }
 
 void Update_IT_callback() {
@@ -518,7 +527,8 @@ void Update_IT_callback() {
 void setup() {
   //HWSerial.setTx(PA0);
   //HWSerial.setRx(PA1);
-  myTim->setMode(1, TIMER_OUTPUT_COMPARE_PWM1, PA8);
+  //HWSerial.println("boi i'm starting up get hyped");
+  myTim->setMode(1, TIMER_OUTPUT_COMPARE_PWM1, PA_8);
   myTim->setOverflow(20000, MICROSEC_FORMAT);
   myTim->setCaptureCompare(1, deployToUs(0), MICROSEC_COMPARE_FORMAT);
   myTim->attachInterrupt(Update_IT_callback);
@@ -559,6 +569,10 @@ void loop() {
             case 0x03:
               simEnabled = true;
               startTime = millis();
+              break;
+            case 0x04:
+              memcpy(&currentRocketAlt, &data[2], 4);
+              break;
           }
         }
       } else {
