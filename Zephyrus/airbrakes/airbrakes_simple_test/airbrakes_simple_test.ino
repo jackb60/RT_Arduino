@@ -1,3 +1,5 @@
+
+
 int pos = 0;
 int mode = 0;
 float airbrakesCtrlStartTime = 0;
@@ -8,7 +10,7 @@ float servoAngle = 0;
 HardwareTimer *myTim = new HardwareTimer(TIM1);
 
 void setAirbrakesServo(float fraction) {
-  servoAngle = (180.0f-70.0f*fraction);
+  servoAngle = (-70.0f*fraction);
 }
 
 uint16_t degToUs(float deg) {
@@ -22,6 +24,8 @@ void Update_IT_callback() {
 
 void setup() {
   // put your setup code here, to run once:
+  Serial.setRx(PA10);
+  Serial.setTx(PA9);
   Serial.begin(115200);
 
   myTim->setMode(1, TIMER_OUTPUT_COMPARE_PWM1, PA8);
@@ -50,7 +54,7 @@ void loop() {
     setAirbrakesServo(deployedFraction);
   }
   else {
-    Serial.println(servoAngle);
+    //Serial.println(servoAngle);
     if (Serial.available()) {
       int angle = Serial.parseInt();
       while (Serial.available()) {
