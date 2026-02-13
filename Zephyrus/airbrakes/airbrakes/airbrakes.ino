@@ -10,12 +10,12 @@
 HardwareSerial HWSerial(PA10, PA9);
 
 /* ------------------ Compile-time constants ------------------ */
-#define AIRBRAKES_N_MEASUREMENTS         13
-#define AIRBRAKES_MEASUREMENT_FREQ_HZ    2
-#define AIRBRAKES_SIMULATION_T_APOG      34.0f
-#define DEBUG_AIRBRAKES_ON               0
-#define LOOP_FREQ                        100
-#define AIRBRAKES_START_TIME             13.0f // seconds
+#define AIRBRAKES_N_MEASUREMENTS 13
+#define AIRBRAKES_MEASUREMENT_FREQ_HZ 2
+#define AIRBRAKES_SIMULATION_T_APOG 34.0f
+#define DEBUG_AIRBRAKES_ON 0
+#define LOOP_FREQ 100
+#define AIRBRAKES_START_TIME 13.0f  // seconds
 
 /* ------------------ Measurements types ------------------ */
 typedef struct {
@@ -47,10 +47,10 @@ HardwareTimer *myTim = new HardwareTimer(TIM1);
 
 /* ------------------ RocketStatus placeholder ------------------ */
 typedef struct {
-  float altitude;        // m
-  float vel_z;           // m/s
-  float accel_z;         // m/s^2
-  bool  apogeeReached;
+  float altitude;  // m
+  float vel_z;     // m/s
+  float accel_z;   // m/s^2
+  bool apogeeReached;
 } RocketStatus;
 
 /* ------------------ Controller state ------------------ */
@@ -70,29 +70,29 @@ AirbrakesControllerState state = DISABLED;
 
 const float g = 9.81f;
 
-float mass        = 39.140453380154554;
-float rho         = 0.736115423712237;
+float mass = 39.140453380154554;
+float rho = 0.736115423712237;
 float airbrakesCd = 1.28f;
-float rocketCd    = 0.5225681679119347f;
-float a_ref       = 0.019289796351014733f;
-float a_max       = 0.0066f;
-float fudge_factor   = 3.2f;
+float rocketCd = 0.5225681679119347f;
+float a_ref = 0.019289796351014733f;
+float a_max = 0.0066f;
+float fudge_factor = 3.2f;
 float fudge_factor_2 = 3.5f;
 
 float EARLIEST_START_AIRBRAKES_PREP_TIME = 4.0f;
-float START_AIRBRAKES_PREP_VEL           = 400.0f;
-float START_AIRBRAKES_PREPROC_TIME       = 12.5f;
-float AIRBRAKES_TIME_DELAY               = 1.0f;
-float AIRBRAKES_T_APOG_FUDGEDIFF         = 1.5f;
+float START_AIRBRAKES_PREP_VEL = 400.0f;
+float START_AIRBRAKES_PREPROC_TIME = 12.5f;
+float AIRBRAKES_TIME_DELAY = 1.0f;
+float AIRBRAKES_T_APOG_FUDGEDIFF = 1.5f;
 
-int   roundToHowMuch = 100;
+int roundToHowMuch = 100;
 
-float t_apog   = 35.5f;
-float coeffA   = -0.0154397511f;
-float coeffB   = -0.3379534959f;
+float t_apog = 35.5f;
+float coeffA = -0.0154397511f;
+float coeffB = -0.3379534959f;
 
-float alt0          = 0.0f;
-float predictedAlt  = 0.0f;
+float alt0 = 0.0f;
+float predictedAlt = 0.0f;
 float desiredDeltaX = 0.0f;
 
 float airbrakesCtrlStartTime = 1e10f;
@@ -101,7 +101,7 @@ float A0_req = 0.0f;
 
 float Astar = 0.0f;
 float patchingAltitude = 0.0f;
-float velContribFudge = 1f;
+float velContribFudge = 1.0f;
 float cFudge = 0.825f;
 float K = 1;
 float factorK = 0.5f;
@@ -116,20 +116,21 @@ float lastI = 0;
 
 
 /* live rocket values !!! REPLACE IN LOOP W TELEMETRY */
-float currentRocketVel   = 0.0f;
+float currentRocketVel = 0.0f;
 float currentRocketAccel = 0.0f;
-bool  apogeeReached      = false;
-float currentRocketAlt   = 1.0f;
+bool apogeeReached = false;
+float currentRocketAlt = 1.0f;
+float targetAlt = 6275.0f;
 
-float lastTimeStamp      = 0;
+float lastTimeStamp = 0;
 
 /* data collection */
 AirbrakesAccelerationMeasurement accelData[AIRBRAKES_N_MEASUREMENTS];
-AirbrakesVelocityMeasurement     velData[AIRBRAKES_N_MEASUREMENTS];
+AirbrakesVelocityMeasurement velData[AIRBRAKES_N_MEASUREMENTS];
 
 /* counters */
 int datIndex = 0;
-int counter  = 0;
+int counter = 0;
 
 unsigned long lastMeasurement = millis();
 
@@ -142,43 +143,78 @@ float globalDP;
 
 
 /* Fudge for Coeff of Drag from OpenRocket */
-float getCfudge(float alt) {  return 8.99999871e-06f*alt*alt - 1.10354984e-01f*alt + 3.38925325e+02f; }
+float getCfudge(float alt) {
+  return 8.99999871e-06f * alt * alt - 1.10354984e-01f * alt + 3.38925325e+02f;
+}
 
-float maxf(float a, float b) { return (a > b) ? a : b; }
+float maxf(float a, float b) {
+  return (a > b) ? a : b;
+}
 
 /* Fast integer-power helpers */
-float p4(float x){ float x2=x*x; return x2*x2; }
-float p5(float x){ return p4(x)*x; }
-float p6(float x){ float x3=x*x*x; return x3*x3; }
-float p7(float x){ return p6(x)*x; }
-float p8(float x){ float x4=p4(x); return x4*x4; }
-float p9(float x){ return p8(x)*x; }
-float p10(float x){ float x5=p5(x); return x5*x5; }
+float p4(float x) {
+  float x2 = x * x;
+  return x2 * x2;
+}
+float p5(float x) {
+  return p4(x) * x;
+}
+float p6(float x) {
+  float x3 = x * x * x;
+  return x3 * x3;
+}
+float p7(float x) {
+  return p6(x) * x;
+}
+float p8(float x) {
+  float x4 = p4(x);
+  return x4 * x4;
+}
+float p9(float x) {
+  return p8(x) * x;
+}
+float p10(float x) {
+  float x5 = p5(x);
+  return x5 * x5;
+}
 
-float pow5f_fast(float x){ return p5(x); }
-float pow10f_fast(float x){ return p10(x); }
+float pow5f_fast(float x) {
+  return p5(x);
+}
+float pow10f_fast(float x) {
+  return p10(x);
+}
 
 /* Avoid Arduino macro collision with sq() by using different names */
-float sqf_local(float x) { return x * x; }
-float cubef_local(float x) { return x * x * x; }
-float pow4f_local(float x) { float x2 = x*x; return x2*x2; }
+float sqf_local(float x) {
+  return x * x;
+}
+float cubef_local(float x) {
+  return x * x * x;
+}
+float pow4f_local(float x) {
+  float x2 = x * x;
+  return x2 * x2;
+}
 
 bool inverse2x2Matrix(const float A[2][2], float Ainv[2][2]) {
   float a = A[0][0], b = A[0][1];
   float c = A[1][0], d = A[1][1];
-  float det = a*d - b*c;
+  float det = a * d - b * c;
 
   if (fabsf(det) <= 1e-6f) {
-    Ainv[0][0]=0.0f; Ainv[0][1]=0.0f;
-    Ainv[1][0]=0.0f; Ainv[1][1]=0.0f;
+    Ainv[0][0] = 0.0f;
+    Ainv[0][1] = 0.0f;
+    Ainv[1][0] = 0.0f;
+    Ainv[1][1] = 0.0f;
     return false;
   }
 
   float f = 1.0f / det;
-  Ainv[0][0] =  f*d;
-  Ainv[0][1] = -f*c;
-  Ainv[1][0] = -f*b;
-  Ainv[1][1] =  f*a;
+  Ainv[0][0] = f * d;
+  Ainv[0][1] = -f * c;
+  Ainv[1][0] = -f * b;
+  Ainv[1][1] = f * a;
   return true;
 }
 
@@ -195,11 +231,11 @@ void setAirbrakesServo(float deployedFraction) {
   if (deployedFraction < 0.0f) deployedFraction = 0.0f;
   if (deployedFraction > 1.0f) deployedFraction = 1.0f;
   HWSerial.println(deployedFraction);
-  globalDP = deployedFraction;
+  globalDP = 1-deployedFraction;
 }
 
 /* actuator reading */
-void getAirbrakesServo() {
+float getAirbrakesServo() {
   return globalDP;
 }
 
@@ -210,28 +246,27 @@ float accelModel(float t, float a, float custom_t_apog) {
 }
 
 float getR2fromFit_accel(const AirbrakesAccelerationMeasurement *data,
-                                size_t n,
-                                float a,
-                                float custom_t_apog)
-{
+                         size_t n,
+                         float a,
+                         float custom_t_apog) {
   if (!data || n == 0) return 0.0f;
 
   float ss_res = 0.0f;
   float ss_tot = 0.0f;
-  float sum_y  = 0.0f;
+  float sum_y = 0.0f;
 
   for (size_t i = 0; i < n; i++) {
-    float y  = data[i].accelerationMeasurement;
+    float y = data[i].accelerationMeasurement;
     float yh = accelModel(data[i].timeStamp, a, custom_t_apog);
-    float r  = y - yh;
-    ss_res += r*r;
-    sum_y  += y;
+    float r = y - yh;
+    ss_res += r * r;
+    sum_y += y;
   }
 
   float mean = sum_y / (float)n;
   for (size_t i = 0; i < n; i++) {
     float d = data[i].accelerationMeasurement - mean;
-    ss_tot += d*d;
+    ss_tot += d * d;
   }
 
   if (ss_tot == 0.0f) return 0.0f;
@@ -243,7 +278,10 @@ int argmax(const float *arr, size_t n) {
   float best = arr[0];
   int idx = 0;
   for (size_t i = 1; i < n; i++) {
-    if (arr[i] > best) { best = arr[i]; idx = (int)i; }
+    if (arr[i] > best) {
+      best = arr[i];
+      idx = (int)i;
+    }
   }
   return idx;
 }
@@ -252,34 +290,35 @@ int argmax(const float *arr, size_t n) {
 void printFloatArray3(const char *label, const float a[3]) {
   HWSerial.print(label);
   HWSerial.print("[");
-  HWSerial.print(a[0], 4); HWSerial.print(", ");
-  HWSerial.print(a[1], 4); HWSerial.print(", ");
+  HWSerial.print(a[0], 4);
+  HWSerial.print(", ");
+  HWSerial.print(a[1], 4);
+  HWSerial.print(", ");
   HWSerial.print(a[2], 4);
   HWSerial.println("]");
 }
 
 /* calculate the area needed for airbrakes */
-float reqDeployedAreaAirbrakes(float t_0, float deltaX)
-{
-  float a  = coeffA;
-  float b  = coeffB;
+float reqDeployedAreaAirbrakes(float t_0, float deltaX) {
+  float a = coeffA;
+  float b = coeffB;
   float dt = (t_0 - t_apog);
 
-  float a2 = a*a;
-  float a3 = a2*a;
-  float b2 = b*b;
-  float b3 = b2*b;
-  float g2 = g*g;
-  float g3 = g2*g;
+  float a2 = a * a;
+  float a3 = a2 * a;
+  float b2 = b * b;
+  float b3 = b2 * b;
+  float g2 = g * g;
+  float g3 = g2 * g;
 
   float term =
-      (a3)   * p10(dt) / 10.0f
-    + (a2*b) * p9(dt)  / 3.0f
-    + (3.0f*a*b2 - 3.0f*a2*g) * p8(dt) / 8.0f
-    + (b3 - 6.0f*a*b*g)       * p7(dt) / 7.0f
-    + (a*g2 - b2*g)           * p6(dt) / 2.0f
-    + (3.0f*b*g2)             * p5(dt) / 5.0f
-    - (g3)                    * p4(dt) / 4.0f;
+    (a3)*p10(dt) / 10.0f
+    + (a2 * b) * p9(dt) / 3.0f
+    + (3.0f * a * b2 - 3.0f * a2 * g) * p8(dt) / 8.0f
+    + (b3 - 6.0f * a * b * g) * p7(dt) / 7.0f
+    + (a * g2 - b2 * g) * p6(dt) / 2.0f
+    + (3.0f * b * g2) * p5(dt) / 5.0f
+    - (g3)*p4(dt) / 4.0f;
 
   float xi = -term;
 
@@ -294,72 +333,69 @@ float reqDeployedAreaAirbrakes(float t_0, float deltaX)
 }
 
 /* estimates */
-float getVelocityEstimate(float t)
-{
+float getVelocityEstimate(float t) {
   float dt = t - t_apog;
   return coeffA * cubef_local(dt)
-       + coeffB * sqf_local(dt)
-       - g * dt;
+         + coeffB * sqf_local(dt)
+         - g * dt;
 }
 
-float getAltitudeEstimate(float t, float alt0_local)
-{
+float getAltitudeEstimate(float t, float alt0_local) {
   float dt = t - t_apog;
   return coeffA * pow4f_local(dt) / 4.0f
-       + coeffB * cubef_local(dt) / 3.0f
-       - g * sqf_local(dt) / 2.0f
-       + alt0_local;
+         + coeffB * cubef_local(dt) / 3.0f
+         - g * sqf_local(dt) / 2.0f
+         + alt0_local;
 }
 
-float getAltitudeEstimate(float t)
-{
+float getAltitudeEstimate(float t) {
   return getAltitudeEstimate(t, alt0);
 }
 
 /* start conditions */
 bool shouldStartAirbrakesControlPrep() {
-  return (getFlightTime() > EARLIEST_START_AIRBRAKES_PREP_TIME) &&
-         (!apogeeReached) &&
-         (currentRocketVel < START_AIRBRAKES_PREP_VEL);
+  HWSerial.print("Flight time: ");
+  HWSerial.println(getFlightTime());
+  HWSerial.print("Current Vel: ");
+  HWSerial.println(currentRocketVel);
+  return (getFlightTime() > EARLIEST_START_AIRBRAKES_PREP_TIME) && (!apogeeReached) && (currentRocketVel < START_AIRBRAKES_PREP_VEL);
 }
 
 bool shouldStartAirbrakesControlPreprocess() {
-  return (getFlightTime() > START_AIRBRAKES_PREPROC_TIME) &&
-         (!apogeeReached);
+  return (getFlightTime() > START_AIRBRAKES_PREPROC_TIME) && (!apogeeReached);
 }
 
 
 /* Conrad Altitude Estimate */
 float computeFinalAltitude_Conrad(float A, float h0, float v0) {
   const float fudge_factor_conrad = 3.2f;
-  const float fudged_alt_diff = 13f;
+  const float fudged_alt_diff = 13.0f;
 
   float m = mass;
-  float c = rho*rocketCd*aRef/2.0f;
+  float c = rho * rocketCd * a_ref / 2.0f;
   c *= cFudge;
-  float alpha = rho*airbrakesCd*A/2.0f;
+  float alpha = rho * airbrakesCd * A / 2.0f;
 
   // Fudging
   alpha /= fudge_factor_conrad;
 
-  float hf = h0 + velContribFudge*m/(2.0*(alpha + c))*log((v0*v0*(alpha+c))/g/m+1);
+  float hf = h0 + velContribFudge * m / (2.0 * (alpha + c)) * log((v0 * v0 * (alpha + c)) / g / m + 1);
   return hf - fudged_alt_diff + patchingAltitude;
 }
 
 /* Compute Coefficient for control */
 float computeK(float Astar, float h0, float v0) {
   const float fudge_factor_conrad = 3.2f;
-  const float fudged_alt_diff = 13f;
+  const float fudged_alt_diff = 13.0f;
 
   float m = mass;
-  float c = rho*rocketCd*aRef/2.0f;
-  float v0 = status.getRocketVelocity().z;
-  float alphaStar = rho*airbrakesCd*Astar/2.0f;
+  float c = rho * rocketCd * a_ref / 2.0f;
+  float alphaStar = rho * airbrakesCd * Astar / 2.0f;
 
   // Fudging
   alphaStar /= fudge_factor_conrad;
 
-  float K0 = m/2 * (-1/(c+alphaStar)/(c+alphaStar) * log(v0*v0/g/m*(c+alphaStar)+1) + 1/(c+alphaStar)*v0*v0/g/m/(v0*v0/g/m*(c+alphaStar)+1));
+  float K0 = m / 2 * (-1 / (c + alphaStar) / (c + alphaStar) * log(v0 * v0 / g / m * (c + alphaStar) + 1) + 1 / (c + alphaStar) * v0 * v0 / g / m / (v0 * v0 / g / m * (c + alphaStar) + 1));
 
   return K0;
 }
@@ -367,22 +403,23 @@ float computeK(float Astar, float h0, float v0) {
 
 void handleAirbrakesState() {
   RocketStatus status;
-  status.altitude      = 0.0f;
-  status.vel_z         = currentRocketVel;
-  status.accel_z       = currentRocketAccel;
+  status.altitude = 0.0f;
+  status.vel_z = currentRocketVel;
+  status.accel_z = currentRocketAccel;
   status.apogeeReached = apogeeReached;
 
   float currentTime = getFlightTime();
 
-  apogeeReached      = status.apogeeReached;
-  currentRocketVel   = status.vel_z;
+  apogeeReached = status.apogeeReached;
+  currentRocketVel = status.vel_z;
   currentRocketAccel = status.accel_z;
 
-  const int everyHowMany  = 1000 / AIRBRAKES_MEASUREMENT_FREQ_HZ;
+  const int everyHowMany = 1000 / AIRBRAKES_MEASUREMENT_FREQ_HZ;
   const int nMeasurements = AIRBRAKES_N_MEASUREMENTS;
 
   // DISABLED : awaiting start of prep (data collection)
   if (state == DISABLED) {
+    setAirbrakesServo(0.0f);
     //HWSerial.print("[Airbrakes] Status:  DISABLED                 \r");
     state = shouldStartAirbrakesControlPrep() ? PREP : DISABLED;
     if (state == PREP) {
@@ -399,7 +436,7 @@ void handleAirbrakesState() {
       lastMeasurement = millis();
       if (datIndex < nMeasurements) {
         accelData[datIndex] = AirbrakesAccelerationMeasurement_init(currentTime, currentRocketAccel);
-        velData[datIndex]   = AirbrakesVelocityMeasurement_init(currentTime, currentRocketVel);
+        velData[datIndex] = AirbrakesVelocityMeasurement_init(currentTime, currentRocketVel);
         datIndex++;
       }
     }
@@ -411,12 +448,16 @@ void handleAirbrakesState() {
       counter = 0;
 
       for (int i = 0; i < nMeasurements; i++) {
-        HWSerial.print("[Airbrakes] Data "); HWSerial.print(i); HWSerial.print(": Vel=");
+        HWSerial.print("[Airbrakes] Data ");
+        HWSerial.print(i);
+        HWSerial.print(": Vel=");
         HWSerial.print(velData[i].velocityMeasurement, 4);
-        HWSerial.print(" @ "); HWSerial.print(velData[i].timeStamp, 4);
+        HWSerial.print(" @ ");
+        HWSerial.print(velData[i].timeStamp, 4);
         HWSerial.print(" | Accel=");
         HWSerial.print(accelData[i].accelerationMeasurement, 4);
-        HWSerial.print(" @ "); HWSerial.println(accelData[i].timeStamp, 4);
+        HWSerial.print(" @ ");
+        HWSerial.println(accelData[i].timeStamp, 4);
       }
 
       HWSerial.println("[Airbrakes] Entering PREPROCESS (data collected)");
@@ -427,14 +468,18 @@ void handleAirbrakesState() {
       if (state == PREPROCESS) {
 
         for (int i = 0; i < nMeasurements; i++) {
-          HWSerial.print("[Airbrakes] Data "); HWSerial.print(i); HWSerial.print(": Vel=");
+          HWSerial.print("[Airbrakes] Data ");
+          HWSerial.print(i);
+          HWSerial.print(": Vel=");
           HWSerial.print(velData[i].velocityMeasurement, 4);
-          HWSerial.print(" @ "); HWSerial.print(velData[i].timeStamp, 4);
+          HWSerial.print(" @ ");
+          HWSerial.print(velData[i].timeStamp, 4);
           HWSerial.print(" | Accel=");
           HWSerial.print(accelData[i].accelerationMeasurement, 4);
-          HWSerial.print(" @ "); HWSerial.println(accelData[i].timeStamp, 4);
+          HWSerial.print(" @ ");
+          HWSerial.println(accelData[i].timeStamp, 4);
         }
-        
+
         counter = 0;
         HWSerial.println("[Airbrakes] Entering PREPROCESS (time's up)");
         HWSerial.print("[Airbrakes] Current Time: ");
@@ -451,7 +496,7 @@ void handleAirbrakesState() {
       AIRBRAKES_SIMULATION_T_APOG + 1.0f
     };
 
-    float resulting_R2_values[3] = {0.0f, 0.0f, 0.0f};
+    float resulting_R2_values[3] = { 0.0f, 0.0f, 0.0f };
 
     for (size_t i = 0; i < 3; i++) {
       float sum_num = 0.0f;
@@ -478,16 +523,16 @@ void handleAirbrakesState() {
     HWSerial.println(t_apog, 4);
 
     // Fit velocity coefficients
-    float XT_X[2][2] = {{0.0f, 0.0f}, {0.0f, 0.0f}};
-    float XT_y[2] = {0.0f, 0.0f};
+    float XT_X[2][2] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+    float XT_y[2] = { 0.0f, 0.0f };
 
     for (int i = 0; i < nMeasurements; i++) {
-      float dt  = velData[i].timeStamp - t_apog;
-      float dt2 = dt*dt;
-      float dt3 = dt2*dt;
-      float dt4 = dt2*dt2;
-      float dt5 = dt4*dt;
-      float dt6 = dt3*dt3;
+      float dt = velData[i].timeStamp - t_apog;
+      float dt2 = dt * dt;
+      float dt3 = dt2 * dt;
+      float dt4 = dt2 * dt2;
+      float dt5 = dt4 * dt;
+      float dt6 = dt3 * dt3;
 
       XT_X[0][0] += dt6;
       XT_X[0][1] += dt5;
@@ -495,7 +540,7 @@ void handleAirbrakesState() {
       XT_X[1][1] += dt4;
 
       float vi = velData[i].velocityMeasurement;
-      float yi = vi + g*dt;
+      float yi = vi + g * dt;
 
       XT_y[0] += dt3 * yi;
       XT_y[1] += dt2 * yi;
@@ -511,33 +556,42 @@ void handleAirbrakesState() {
     coeffA = XT_X_inv[0][0] * XT_y[0] + XT_X_inv[0][1] * XT_y[1];
     coeffB = XT_X_inv[1][0] * XT_y[0] + XT_X_inv[1][1] * XT_y[1];
 
-    HWSerial.print("[Airbrakes] Velocity fit: a="); HWSerial.print(coeffA, 6);
-    HWSerial.print(" b="); HWSerial.println(coeffB, 6);
-    HWSerial.print("[Airbrakes] Current Altitude: "); HWSerial.print(currentRocketAlt, 6);
-    HWSerial.print(" @ "); HWSerial.println(getFlightTime(), 6);
+    HWSerial.print("[Airbrakes] Velocity fit: a=");
+    HWSerial.print(coeffA, 6);
+    HWSerial.print(" b=");
+    HWSerial.println(coeffB, 6);
+    HWSerial.print("[Airbrakes] Current Altitude: ");
+    HWSerial.print(currentRocketAlt, 6);
+    HWSerial.print(" @ ");
+    HWSerial.println(getFlightTime(), 6);
     alt0 = currentRocketAlt - getAltitudeEstimate(getFlightTime());
     predictedAlt = getAltitudeEstimate(t_apog);
 
-    float desiredAlt = 6275.0f; //floorf(predictedAlt / (float)roundToHowMuch) * (float)roundToHowMuch;
+    float desiredAlt = 6275.0f;  //floorf(predictedAlt / (float)roundToHowMuch) * (float)roundToHowMuch;
+    targetAlt = desiredAlt;
     desiredDeltaX = predictedAlt - desiredAlt;
     cFudge = getCfudge(desiredAlt);
-    HWSerial.print("[Airbrakes] Predicted Altitude: "); HWSerial.println(predictedAlt, 6);
-    HWSerial.print("[Airbrakes] Desired Altitude: "); HWSerial.println(desiredAlt, 6);
-    HWSerial.print("[Airbrakes] Aiming for ∆X in Altitude: "); HWSerial.println(desiredDeltaX, 6);
+    HWSerial.print("[Airbrakes] Predicted Altitude: ");
+    HWSerial.println(predictedAlt, 6);
+    HWSerial.print("[Airbrakes] Desired Altitude: ");
+    HWSerial.println(desiredAlt, 6);
+    HWSerial.print("[Airbrakes] Aiming for ∆X in Altitude: ");
+    HWSerial.println(desiredDeltaX, 6);
 
 
     bool tooLate = currentTime > AIRBRAKES_START_TIME - 0.25;
     airbrakesCtrlStartTime = tooLate ? currentTime + AIRBRAKES_TIME_DELAY : AIRBRAKES_START_TIME;
     A0_req = reqDeployedAreaAirbrakes(airbrakesCtrlStartTime, desiredDeltaX);
 
-    Astar = A0_req*a_max;
+    Astar = A0_req * a_max;
     lastA = Astar;
-    K = computeK(Astar,currentRocketAlt,currentRocketVel)*factorK;
+    K = computeK(Astar, currentRocketAlt, currentRocketVel) * factorK;
 
 
 
     if (A0_req > 1.0f) {
-      HWSerial.print("[Airbrakes] Req A="); HWSerial.print(A0_req, 3);
+      HWSerial.print("[Airbrakes] Req A=");
+      HWSerial.print(A0_req, 3);
       HWSerial.println(" > 1.0 (infeasible)");
       if (DEBUG_AIRBRAKES_ON) {
         A0_req = 1.0f;
@@ -547,8 +601,10 @@ void handleAirbrakesState() {
       }
     } else {
       HWSerial.println("[Airbrakes] Reaching Apogee is Feasible");
-      HWSerial.print("[Airbrakes] A0_req="); HWSerial.println(A0_req, 3);
-      HWSerial.print("[Airbrakes] Desired start time: "); HWSerial.println(airbrakesCtrlStartTime, 3);
+      HWSerial.print("[Airbrakes] A0_req=");
+      HWSerial.println(A0_req, 3);
+      HWSerial.print("[Airbrakes] Desired start time: ");
+      HWSerial.println(airbrakesCtrlStartTime, 3);
       state = WAIT_FOR_START;
     }
   }
@@ -562,7 +618,7 @@ void handleAirbrakesState() {
       HWSerial.print("[Airbrakes] Current Time: ");
       HWSerial.println(currentTime, 4);
     }
-    
+
   }
   // Ramp up
   else if (state == CONTROLLING_RAMP) {
@@ -579,35 +635,33 @@ void handleAirbrakesState() {
   // plateau
   else if (state == CONTROLLING_PLATEAU) {
 
-    float Ki = ki_factor*2.0f/K;
-    float Kp = kp_factor/K;
+    float Ki = ki_factor * 2.0f / K;
+    float Kp = kp_factor / K;
 
-    lastA = getAirbrakesServo()*a_max;
+    lastA = getAirbrakesServo() * a_max;
 
     lastDeltaA = lastA - Astar;
 
-    float current_hf = computeFinalAltitude_Conrad(lastA,currentRocketAlt,currentRocketVel);
+    float current_hf = computeFinalAltitude_Conrad(lastA, currentRocketAlt, currentRocketVel);
     if (patchingAltitude == 0) {
-      patchingAltitude = targetAlt-current_hf;
-      current_hf = computeFinalAltitude_Conrad(lastA,status);
+      patchingAltitude = targetAlt - current_hf;
+      current_hf = computeFinalAltitude_Conrad(lastA, currentRocketAlt, currentRocketVel);
     }
     lastDeltaH = current_hf - targetAlt;
     lastHf = current_hf;
 
     // decide integral term
     float IofKplus1 = 0.0f;
-    if (((lastA >= 1.0f) && (lastDeltaH >= 0.0f)) ||
-            (lastA <= 1e-5f) && (lastDeltaH < 0.0f)) {
-        IofKplus1 = lastI;
-    }
-    else {
-        IofKplus1 = lastI + 2.0f/K*lastDeltaH;
+    if (((lastA >= 1.0f) && (lastDeltaH >= 0.0f)) || (lastA <= 1e-5f) && (lastDeltaH < 0.0f)) {
+      IofKplus1 = lastI;
+    } else {
+      IofKplus1 = lastI + 2.0f / K * lastDeltaH;
     }
     lastI = IofKplus1;
 
-    float nextDeltaA = Kp*lastDeltaH + Ki*lastI;
+    float nextDeltaA = Kp * lastDeltaH + Ki * lastI;
     float nextA = Astar + nextDeltaA;
-    setAirbrakesServo(nextA/a_max);
+    setAirbrakesServo(nextA / a_max);
 
 
     if (status.vel_z <= 0.0f || status.apogeeReached) {
@@ -646,20 +700,20 @@ void setup() {
 
 void loop() {
   // Replace with real telemetry
-  if(millis()-lastTimeStamp >= 1000.0f/LOOP_FREQ) {
+  if (millis() - lastTimeStamp >= 1000.0f / LOOP_FREQ) {
 
     // READ TELEMETRY
-    
+
     while (HWSerial.available() >= 7) {
-      if(HWSerial.peek() == 0xAA){
-        int n = 6; // size of the packet
-        uint8_t data[n+1];
-        HWSerial.readBytes((char*)data, n+1);
+      if (HWSerial.peek() == 0xAA) {
+        int n = 6;  // size of the packet
+        uint8_t data[n + 1];
+        HWSerial.readBytes((char *)data, n + 1);
         uint8_t checksum = 0;
-        for(int i = 1; i < n; i++){
+        for (int i = 1; i < n; i++) {
           checksum += data[i];
         }
-        if(checksum == data[n]){
+        if (checksum == data[n]) {
           // proc start, vel/accel data, and apogee status.
           switch (data[1]) {
             case 0x00:
@@ -696,5 +750,4 @@ void loop() {
     handleAirbrakesState();
     lastTimeStamp = millis();
   }
-  
 }
