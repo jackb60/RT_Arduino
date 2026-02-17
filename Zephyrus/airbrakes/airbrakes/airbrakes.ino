@@ -79,7 +79,7 @@ float a_max = 0.0066f;
 float fudge_factor = 3.2f;
 float fudge_factor_2 = 3.5f;
 
-float EARLIEST_START_AIRBRAKES_PREP_TIME = 4.0f;
+float EARLIEST_AIRBRAKES_PREP_TIME = 4.0f;
 float START_AIRBRAKES_PREP_VEL = 400.0f;
 float START_AIRBRAKES_PREPROC_TIME = 12.5f;
 float AIRBRAKES_TIME_DELAY = 1.0f;
@@ -104,7 +104,7 @@ float patchingAltitude = 0.0f;
 float velContribFudge = 1.0f;
 float cFudge = 0.825f;
 float K = 1;
-float factorK = 0.5f;
+float factorK = 0.5f; // not actually a fudge factor.
 float kp_factor = 2.5f;
 float ki_factor = 0.5f;
 
@@ -358,7 +358,7 @@ bool shouldStartAirbrakesControlPrep() {
   HWSerial.println(getFlightTime());
   HWSerial.print("Current Vel: ");
   HWSerial.println(currentRocketVel);
-  return (getFlightTime() > EARLIEST_START_AIRBRAKES_PREP_TIME) && (!apogeeReached) && (currentRocketVel < START_AIRBRAKES_PREP_VEL);
+  return (getFlightTime() > EARLIEST_AIRBRAKES_PREP_TIME) && (!apogeeReached) && (currentRocketVel < START_AIRBRAKES_PREP_VEL);
 }
 
 bool shouldStartAirbrakesControlPreprocess() {
