@@ -14,8 +14,18 @@ SPISettings settings(1000000, MSBFIRST, SPI_MODE0);
 ADXL357 accel(&SPI_3, settings, CS);
 
 void setup() {
+  delay(100);
   debugSer.begin(115200);
   SPI_3.begin();
+  debugSer.println("BOOT");
+  pinMode(PC14, OUTPUT);
+  digitalWrite(PC14, 1);
+  pinMode(PD1, OUTPUT);
+  digitalWrite(PD1, 1);
+  pinMode(PD2, OUTPUT);
+  digitalWrite(PD2, 1);
+  pinMode(PD4, OUTPUT);
+  digitalWrite(PD4, 1);
   accel.setup();
 }
 

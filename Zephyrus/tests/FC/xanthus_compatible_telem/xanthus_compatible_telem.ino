@@ -198,6 +198,18 @@ void setup() {
   pinMode(PB14, OUTPUT);
   digitalWrite(PB14, 1);
   pyroSetup();*/
+  pinMode(BARO_CS, OUTPUT);
+  digitalWrite(BARO_CS, 1);
+  pinMode(PC12, OUTPUT);
+  digitalWrite(PC12, 1);
+  pinMode(PD0, 1);
+  digitalWrite(PD0, 1);
+  pinMode(PD1, OUTPUT);
+  digitalWrite(PD1, 1);
+  pinMode(PD2, OUTPUT);
+  digitalWrite(PD2, 1);
+  pinMode(PD4, OUTPUT);
+  digitalWrite(PD4, 1);
   SPI_3.begin();
   SPI_3.beginTransaction(settings);
   cc.begin();

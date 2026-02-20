@@ -26,8 +26,20 @@ SPISettings settings(1000000, MSBFIRST, SPI_MODE0);
 
 void setup() {
   // put your setup code here, to run once:
+  pinMode(PC12, OUTPUT);
+  digitalWrite(PC12, 1);
+  pinMode(PD0, 1);
+  digitalWrite(PD0, 1);
+  pinMode(PD1, OUTPUT);
+  digitalWrite(PD1, 1);
+  pinMode(PD2, OUTPUT);
+  digitalWrite(PD2, 1);
+  pinMode(PD4, OUTPUT);
+  digitalWrite(PD4, 1);
+  pinMode(PD3, OUTPUT);
   SPI_3.begin();
   debugSer.begin(115200);
+  delay(5000);
 }
 
 void loop() {
