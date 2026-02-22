@@ -10,7 +10,7 @@ float servoAngle = 0;
 HardwareTimer *myTim = new HardwareTimer(TIM1);
 
 void setAirbrakesServo(float fraction) {
-  servoAngle = (-70.0f*fraction)+30.0f;
+  servoAngle = (210.0f*fraction)-120.0f;
 }
 
 uint16_t degToUs(float deg) {
