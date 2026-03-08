@@ -15,7 +15,7 @@ SPIClass SPI_3(MOSI, MISO, SCLK, -1);
 SPISettings settings(1000000, MSBFIRST, SPI_MODE0);
 
 flash myFlash(&SPI_3,settings, FLASH_CS);
-
+int counter = 0;
 void setup() {
   // put your setup code here, to run once:
   pinMode(PC12, OUTPUT);
@@ -30,7 +30,7 @@ void setup() {
   digitalWrite(PD3, 1);
   SPI_3.begin();
   debugSer.begin(115200);
-  delay(100);
+  delay(1000);
   myFlash.begin();
   debugSer.println("Erasing flash sector 0");
   myFlash.sectorErase(0);
@@ -51,10 +51,15 @@ void setup() {
     debugSer.print(testReadPage[i], HEX);
     debugSer.print(" ");
   }
-
+  debugSer.println();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-
+  debugSer.print("Status Register (query #");
+  debugSer.print(counter);
+  counter += 1;
+  debugSer.print("): ");
+  debugSer.println(myFlash.readStatusRegister());
+  delay(1000);
 }

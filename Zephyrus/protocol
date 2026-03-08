@@ -1,0 +1,24 @@
+UBLOX GPS INIT PROTOCOL
+
+
+-> CHANGE PROTOCOL TO UBX && CHANGE BAUD TO 115200
+-> ENABLE UBX MESSAGES
+-> CHANGE RATE = 10 Hz
+
+
+## change baud rate:
+> B5 62 06 00 14 00 01 00 00 00 D0 08 00 00 00 C2 01 00 07 00 01 00 00 00 00 00 BE 72 
+> B5 62 06 00 01 00 01 08 22
+<format>
+> R <- UBX CFG-PRT,  Size  28,  'Ports'
+> R <- UBX CFG,  Size   9,  'Config'
+
+
+## change protocol to UBX
+> B5 62 06 01 08 00 01 06 00 01 00 00 00 00 17 DA          
+> B5 62 06 01 02 00 01 06 10 39                    
+<format>
+R <- UBX CFG-MSG,  Size  16,  'Messages'
+R <- UBX CFG,  Size  10,  'Config'
+
+

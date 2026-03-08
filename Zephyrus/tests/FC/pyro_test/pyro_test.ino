@@ -5,19 +5,30 @@ HardwareSerial debugSer(PC7, PC6);
 
 pyro myPyro;
 
+int counter = 0;
+
 void setup() {
   debugSer.begin(115200);
   debugSer.println("Starting Pyro Test");
   myPyro.begin();
-  /*
-  myPyro.arm(0);
-  myPyro.fire(0);
-  delay(1000):
-  myPyro.off(0);
-  */
+  for(int i = 0; i < 6; i++) {
+    myPyro.off(i);
+    //myPyro.arm(i);
+    //myPyro.fire(i);
+  }
+  debugSer.println("Yee Haw");
+  delay(500);
+  for(int i = 0; i < 6; i++) {
+    myPyro.off(i);
+    //myPyro.arm(i);
+    //myPyro.fire(i);
+  }  
+    debugSer.println("all set");
 }
 
 void loop() {
+  debugSer.println(counter);
+  counter += 1;
     for (int i = 0; i < 6; i++) {
         debugSer.print("Pyro ");
         debugSer.print(i);
@@ -28,5 +39,5 @@ void loop() {
         
     }
     debugSer.println();
-    delay(20000);
+    delay(500);
 }
