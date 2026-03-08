@@ -13,6 +13,8 @@ SPISettings settings(1000000, MSBFIRST, SPI_MODE0);
 
 baro myBaro(&SPI_3,settings, BARO_CS);
 
+int counter = 0;
+
 void setup() {
   // put your setup code here, to run once:
   pinMode(PC12, OUTPUT);
@@ -36,11 +38,19 @@ void setup() {
     debugSer.print(": ");
     debugSer.println(myBaro.getCalibrationConstant(i), HEX);
   }
-  delay(1000);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+  debugSer.println("\n--------------\n");
+  debugSer.print("Data Packet #");
+  debugSer.println(counter);
+  counter += 1;
+
+  myBaro.updateRawTemp();
+  myBaro.updateRawPress();
+
+
   debugSer.print("Raw Temperature: ");
   debugSer.println(myBaro.getRawTemp());
   debugSer.print("Raw Pressure: ");
@@ -49,6 +59,12 @@ void loop() {
   debugSer.println(myBaro.getTemperature());
   debugSer.print("Altitude (m): ");
   debugSer.println(myBaro.getAltitude());
-
-  delay(1000);
+  debugSer.println("Calibration Values:");
+  for (int i = 1; i <= 6; i++) {
+    debugSer.print("C");
+    debugSer.print(i);
+    debugSer.print(": ");
+    debugSer.println(myBaro.getCalibrationConstant(i), HEX);
+  }
+  delay(2000);
 }
