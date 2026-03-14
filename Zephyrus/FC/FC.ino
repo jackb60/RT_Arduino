@@ -9,6 +9,7 @@
 #include <pyro.h>
 #include <GPS.h>
 
+#include <myTypes.h>
 
 #define MOSI PD7
 #define MISO PB4
@@ -45,22 +46,6 @@ GPS gps(&gpsSer);
 
 pyro pyros;
 
-enum State {
-  GROUND_TESTING,
-  PRE_FLIGHT,
-  FLIGHT,
-  APOGEE,
-  DISREEF,
-  END
-};
-
-enum PyroStatus {
-  PYRO_FAILURE,
-  PYRO_UNCONNECTED,
-  PYRO_CONNECTED,
-  PYRO_SUCCESS
-};
-
 State currentState = GROUND_TESTING;
 
 State recState = GROUND_TESTING;
@@ -68,7 +53,6 @@ State recState = GROUND_TESTING;
 uint32_t loopBegin;
 uint32_t lastTelem;
 
-uint16_t pyroStatus;
 int8_t rxrssi;
 unsigned long lastRec;
 uint16_t packetNum;
@@ -108,7 +92,7 @@ void loop() {
   accel.update();
   mygyro.update();
   gps.update();
-  updatePyros();
+  pyros.update(currentState);
 
 
   //to-do: state machine
@@ -119,37 +103,23 @@ void loop() {
     lastTelem = millis();
     constructTelemetryPacket();
     sendTelemetryPacket();
-    debugSer.println(pyroStatus);
   }
   readTelem();
 
   while (millis() - loopBegin < 10) {}
 }
 
-
-///////////////////////////////////////////////////
-//                      Pyros                    //
-///////////////////////////////////////////////////
-
-void updatePyros() {
-  for (uint8_t i = 0; i < 6; i++) {
-    PyroStatus toSet = pyros.connected(i) ? PYRO_CONNECTED : PYRO_UNCONNECTED;
-    setPyroStatus(i, toSet);
-  }
-
-}
-
-void setPyroStatus(uint8_t channel, PyroStatus val) {
-  uint16_t mask = 0b11 << (channel * 2);
-  pyroStatus &= ~mask;
-  pyroStatus |= (val & 0b11) << (channel * 2);
-}
 ///////////////////////////////////////////////////
 //                    Telemetry                  //
 ///////////////////////////////////////////////////
 uint8_t telemPkt[128];
 void constructTelemetryPacket() {
-  memcpy(&telemPkt[0], &pyroStatus, 2);
+  uint16_t pyrosStatus = pyros.getPyrosStatus();
+  memcpy(&telemPkt[0], &pyrosStatus, 2);
+
+  for (uint8_t i = 0; i < 6; i++) {
+    telemPkt[26 + i] = pyros.resistance(i) * 10;
+  }
 
   uint16_t gyrorawX = mygyro.getRawX();
   uint16_t gyrorawY = mygyro.getRawY();
@@ -160,6 +130,20 @@ void constructTelemetryPacket() {
 
   uint32_t barorawTemp = barometer.getRawTemp();
   memcpy(&telemPkt[23], &barorawTemp, 3);
+
+  //GPS
+  uint8_t gpsFix = gps.getFixType();
+  uint32_t lat = gps.getLat();
+  uint32_t lon = gps.getLon();
+  uint32_t alt = gps.getHeight();
+  uint32_t hACC = gps.getHAcc();
+  uint32_t vACC = gps.getVAcc();
+
+  memcpy(&telemPkt[41], &gpsFix, 1);
+  memcpy(&telemPkt[42], &lat, 4);
+  memcpy(&telemPkt[46], &lon, 4);
+  memcpy(&telemPkt[50], &alt, 4);
+
 
   uint8_t armed_byte = 0;
   for(uint8_t i = 0; i < 6; i++) {
