@@ -58,12 +58,18 @@ unsigned long lastRec;
 uint16_t packetNum;
 uint8_t badPackets;
 
+HardwareTimer *myTim = new HardwareTimer(TIM4);
 
 void setup() {
   // put your setup code here, to run once:
   pinMode(MAG_CS, OUTPUT); //Remove when mag library added
   digitalWrite(MAG_CS, 1); //Remove when mag library added
   pyros.begin();
+
+  myTim->setMode(1, TIMER_OUTPUT_COMPARE_PWM1, PD12);
+  myTim->setOverflow(20000, MICROSEC_FORMAT);
+  myTim->setCaptureCompare(1, degToUs(0), MICROSEC_COMPARE_FORMAT);
+  myTim->resume();
 
   SPI_3.begin();
   debugSer.begin(115200);
@@ -221,6 +227,17 @@ void readTelem() {
               }
             }
             break;
+          case 0x03:
+            for (uint8_t i = 1; i < 9; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+              float angle = *((float*) &recBuf[9]);
+              myTim->setCaptureCompare(1, degToUs(angle), MICROSEC_COMPARE_FORMAT);
+            }
+            break;
         }
       } else {
         badPackets++;
@@ -229,4 +246,8 @@ void readTelem() {
       badPackets++;
     }
   }
+}
+
+uint16_t degToUs(float degrees) {
+  return 1500.0 + (degrees / 60.0) * 500.0; 
 }
