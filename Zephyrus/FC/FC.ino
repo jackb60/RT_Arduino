@@ -8,6 +8,7 @@
 #include <vtx.h>
 #include <pyro.h>
 #include <GPS.h>
+#include <power.h>
 
 #include <myTypes.h>
 
@@ -44,6 +45,7 @@ cam cam0(&CAM0_SER);
 cam cam1(&CAM1_SER);
 vtx myVTX(&VTX_SER);
 GPS gps(&gpsSer);
+power pwr(&pwrSer);
 
 pyro pyros;
 
@@ -77,7 +79,6 @@ void setup() {
 
   SPI_3.begin();
   debugSer.begin(115200);
-  pwrSer.begin(115200);
 
   delay(100);
 
@@ -93,23 +94,22 @@ void setup() {
   cam1.begin();
   myVTX.begin();
   gps.begin();
+  pwr.begin();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   loopBegin = millis();
-  barometer.updateRawTemp();
-  barometer.updateRawPress();
-  accel.update();
+  barometer.updateAll();
+  accel.update(currentState);
   mygyro.update();
   gps.update();
   pyros.update(currentState);
-  updatePowerPacket();
+  pwr.update();
 
 
   //to-do: state machine
   //to-do: flash logging handler
-  //to-do: power board handler
 
   if (millis() - lastTelem > 50) {
     lastTelem = millis();
@@ -121,50 +121,51 @@ void loop() {
   while (millis() - loopBegin < 10) {}
 }
 
-///////////////////////////////////////////////////
-//                  Power Board                  //
-///////////////////////////////////////////////////
-//to-do: move to library
-void updatePowerPacket() {
-  while (pwrSer.available() >= sizeof(powerPkt) + 2) {
-    if (pwrSer.read() == 0xAA) {
-      pwrSer.readBytes(tmp, sizeof(powerPkt));
-      if (pwrSer.read() == calcChecksum(tmp, sizeof(powerPkt))) {
-        memcpy(&powerPkt, tmp, sizeof(powerPkt));    
-      } 
-    }
-  }
-}
-
-uint8_t calcChecksum(uint8_t* p, uint8_t len) {
-  uint8_t ret = 0;
-  for (uint8_t i = 0; i < 15; i++) {
-    ret += *(p + i);
-  }
-  return ret;
-}
 
 ///////////////////////////////////////////////////
 //                    Telemetry                  //
 ///////////////////////////////////////////////////
 uint8_t telemPkt[128];
 void constructTelemetryPacket() {
+  packetNum++;
+  //Pyros
   uint16_t pyrosStatus = pyros.getPyrosStatus();
   memcpy(&telemPkt[0], &pyrosStatus, 2);
 
+  uint8_t armed_byte = 0;
+  for(uint8_t i = 0; i < 6; i++) {
+    armed_byte |= pyros.isArmed(i) << i;
+  }
+  memcpy(&telemPkt[2], &armed_byte, 1);
+
+  uint8_t fired_byte = 0;
+  for(uint8_t i = 0; i < 6; i++) {
+    fired_byte |= pyros.isFired(i) << i;
+  }
+  memcpy(&telemPkt[3], &fired_byte, 1);
+
   for (uint8_t i = 0; i < 6; i++) {
-    telemPkt[26 + i] = pyros.resistance(i) * 10;
+    telemPkt[4 + i] = pyros.resistance(i) * 10;
   }
 
-  uint16_t gyrorawX = mygyro.getRawX();
-  uint16_t gyrorawY = mygyro.getRawY();
-  uint16_t gyrorawZ = mygyro.getRawZ();
-  memcpy(&telemPkt[35], &gyrorawX, 2);
-  memcpy(&telemPkt[37], &gyrorawY, 2);
-  memcpy(&telemPkt[39], &gyrorawZ, 2);
+  //Servos
+  //to-do
 
-  uint32_t barorawTemp = barometer.getRawTemp();
-  memcpy(&telemPkt[23], &barorawTemp, 3);
+  //Accel
+  int32_t accelRawX = accel.getRawX();
+  int32_t accelRawY = accel.getRawZ();
+  int32_t accelRawZ = accel.getRawZ();
+  memcpy(&telemPkt[16], &accelRawX, 3);
+  memcpy(&telemPkt[19], &accelRawY, 3);
+  memcpy(&telemPkt[22], &accelRawZ, 3);
+
+  //Gyro
+  uint16_t gyroRawX = mygyro.getRawX();
+  uint16_t gyroRawY = mygyro.getRawY();
+  uint16_t gyroRawZ = mygyro.getRawZ();
+  memcpy(&telemPkt[25], &gyroRawX, 2);
+  memcpy(&telemPkt[27], &gyroRawY, 2);
+  memcpy(&telemPkt[29], &gyroRawZ, 2);
 
   //GPS
   uint8_t gpsFix = gps.getFixType();
@@ -174,33 +175,72 @@ void constructTelemetryPacket() {
   uint32_t hACC = gps.getHAcc();
   uint32_t vACC = gps.getVAcc();
   uint8_t numSat = gps.getNumSV();
+  memcpy(&telemPkt[31], &gpsFix, 1);
+  memcpy(&telemPkt[32], &lat, 4);
+  memcpy(&telemPkt[36], &lon, 4);
+  memcpy(&telemPkt[40], &alt, 4);
+  memcpy(&telemPkt[44], &hACC, 4);
+  memcpy(&telemPkt[48], &vACC, 4);
+  memcpy(&telemPkt[52], &numSat, 1);
 
-  memcpy(&telemPkt[41], &gpsFix, 1);
-  memcpy(&telemPkt[42], &lat, 4);
-  memcpy(&telemPkt[46], &lon, 4);
-  memcpy(&telemPkt[50], &alt, 4);
-  memcpy(&telemPkt[54], &hACC, 4);
-  memcpy(&telemPkt[58], &vACC, 4);
-  memcpy(&telemPkt[62], &numSat, 1);
+  //Baro
+  uint32_t baroRawPress = barometer.getRawPress();
+  uint32_t baroRawTemp = barometer.getRawTemp();
+  float baroAltAvg = barometer.getFilteredAltitude();
+  memcpy(&telemPkt[53], &baroRawPress, 3);
+  memcpy(&telemPkt[56], &baroRawTemp, 3);
+  memcpy(&telemPkt[59], &baroAltAvg, 4);
 
-  memcpy(&telemPkt[74], &powerPkt.BMS.cell1, 2);
-  memcpy(&telemPkt[76], &powerPkt.BMS.cell2, 2);
-  memcpy(&telemPkt[78], &powerPkt.BMS.cell3, 2);
-  memcpy(&telemPkt[80], &powerPkt.BMS.current, 2);
-  memcpy(&telemPkt[82], &powerPkt.voltages, 24);
+  //State
+  telemPkt[63] = currentState;
 
-  uint8_t armed_byte = 0;
-  for(uint8_t i = 0; i < 6; i++) {
-    armed_byte |= pyros.isArmed(i) << i;
+  //Integrated Angles
+  float roll = mygyro.getRoll();
+  float pitch = mygyro.getPitch();
+  float yaw = mygyro.getYaw();
+  memcpy(&telemPkt[64], &roll, 4);
+  memcpy(&telemPkt[68], &pitch, 4);
+  memcpy(&telemPkt[72], &yaw, 4);
+
+  //Max Altitudes
+  uint16_t maxBaroAlt = barometer.getMaxAlt();
+  uint16_t maxGPSAlt = gps.getMaxAlt();
+  memcpy(&telemPkt[76], &maxBaroAlt, 2);
+  memcpy(&telemPkt[78], &maxGPSAlt, 2);
+
+  //Time
+  uint32_t FCtime = millis();
+  memcpy(&telemPkt[80], &FCtime, 4);
+
+  //Packet Number
+  memcpy(&telemPkt[84], &packetNum, 2);
+
+  //RX RSSI
+  memcpy(&telemPkt[86], &rxrssi, 1);
+
+  //Power
+  uint16_t cell1 = pwr.getCell1Voltage();
+  uint16_t cell2 = pwr.getCell2Voltage();
+  uint16_t cell3 = pwr.getCell3Voltage();
+  uint16_t totalCurrent = pwr.getTotalCurrent();
+  memcpy(&telemPkt[87], &cell1, 2);
+  memcpy(&telemPkt[87], &cell1, 2);
+  memcpy(&telemPkt[87], &cell1, 2);
+  telemPkt[95] = pwr.getTemp() * 2.0;
+  telemPkt[96] = pwr.getProtectionStatus();
+  telemPkt[97] = pwr.getProtectionsEnabled();
+  for (uint8_t i = 0; i < 6; i++) {
+    uint16_t converterVoltage = pwr.getConverterVoltage(i);
+    uint16_t converterCurrent = pwr.getConverterCurrent(i);
+    memcpy(&telemPkt[98 + 2 * i], &converterVoltage, 2);
+    memcpy(&telemPkt[110 + 2 * i], &converterCurrent, 2);
   }
-  memcpy(&telemPkt[103], &armed_byte, 1);
 
-  uint8_t fired_byte = 0;
-  for(uint8_t i = 0; i < 6; i++) {
-    fired_byte |= pyros.isFired(i) << i;
-  }
-  memcpy(&telemPkt[104], &fired_byte, 1);
-  
+  //Accel Integrated Velocity
+  float accelIntegratedVelocity = accel.getIntegratedVelo();
+  memcpy(&telemPkt[122], &accelIntegratedVelocity, 4);
+
+  //Checksum
   telemPkt[127] = calcChecksum();
 }
 
