@@ -9,6 +9,7 @@
 #include <pyro.h>
 #include <GPS.h>
 #include <power.h>
+#include <airbrakes.h>
 
 #include <myTypes.h>
 
@@ -22,6 +23,8 @@
 #define BARO_CS  PD3
 #define CC_CS PC12
 
+#define AIRBRAKES_CLOSED_ANGLE -25
+#define AIRBRAKES_OPEN_ANGLE 25
 
 HardwareSerial debugSer(PC7, PC6);
 HardwareSerial gpsSer(PB12, PB13);
@@ -46,6 +49,8 @@ cam cam1(&CAM1_SER);
 vtx myVTX(&VTX_SER);
 GPS gps(&gpsSer);
 power pwr(&pwrSer);
+
+airbrakes myairbrakes;
 
 pyro pyros;
 
@@ -76,7 +81,8 @@ void setup() {
 
   myTim->setMode(1, TIMER_OUTPUT_COMPARE_PWM1, PD12);
   myTim->setOverflow(20000, MICROSEC_FORMAT);
-  myTim->setCaptureCompare(1, degToUs(0), MICROSEC_COMPARE_FORMAT);
+  myTim->setCaptureCompare(1, degToUsAirbrakes(AIRBRAKES_CLOSED_ANGLE), MICROSEC_COMPARE_FORMAT);
+  myTim->attachInterrupt(Update_IT_callback);
   myTim->resume();
 
   SPI_3.begin();
@@ -97,6 +103,8 @@ void setup() {
   myVTX.begin();
   gps.begin();
   pwr.begin();
+
+  myairbrakes.begin();
 }
 
 void loop() {
@@ -111,9 +119,11 @@ void loop() {
 
   FCtime = millis();
   handleState();
+  updateAirbrakes();
 
   //to-do: state machine
   //to-do: flash logging handler
+  //to-do: roll control handler
 
   if (millis() - lastTelem > 50) {
     lastTelem = millis();
@@ -403,7 +413,7 @@ void readTelem() {
             }
             if (recValid && currentState == GROUND_TESTING) {
               float angle = *((float*) &recBuf[9]);
-              myTim->setCaptureCompare(1, degToUs(angle), MICROSEC_COMPARE_FORMAT);
+              myTim->setCaptureCompare(1, degToUsAirbrakes(angle), MICROSEC_COMPARE_FORMAT);
             }
             break;
         }
@@ -416,6 +426,35 @@ void readTelem() {
   }
 }
 
-uint16_t degToUs(float degrees) {
+///////////////////////////////////////////////////
+//                    Airbrakes                  //
+///////////////////////////////////////////////////
+/*
+typedef struct {
+  float altitude;
+  float vel_z;
+  float accel_z;
+  bool apogeeReached;
+} AirbrakesData;
+*/
+
+AirbrakesData sendToAirbrakes;
+void updateAirbrakes() {
+  sendToAirbrakes.altitude = barometer.getFilteredAltitude();
+  sendToAirbrakes.vel_z = accel.getIntegratedVelo();
+  sendToAirbrakes.accel_z = accel.getAccelZ();
+  sendToAirbrakes.apogeeReached = currentState > FLIGHT;
+  myairbrakes.update(FCtime / 1000.0, sendToAirbrakes);
+}
+
+uint16_t degToUsAirbrakes(float degrees) {
   return 1500.0 + (degrees / 60.0) * 500.0; 
+}
+
+uint16_t dpToDeg(float dp) {
+  return (AIRBRAKES_OPEN_ANGLE - AIRBRAKES_CLOSED_ANGLE) * dp + AIRBRAKES_CLOSED_ANGLE;
+}
+
+void Update_IT_callback() {
+  myTim->setCaptureCompare(1, degToUsAirbrakes(dpToDeg(myairbrakes.getDeployment())), MICROSEC_COMPARE_FORMAT);
 }
