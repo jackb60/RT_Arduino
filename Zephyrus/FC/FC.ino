@@ -53,6 +53,8 @@ State currentState = GROUND_TESTING;
 
 State recState = GROUND_TESTING;
 
+uint32_t FCtime;
+
 uint32_t loopBegin;
 uint32_t lastTelem;
 
@@ -107,6 +109,9 @@ void loop() {
   pyros.update(currentState);
   pwr.update();
 
+  FCtime = millis();
+  handleState();
+  handleBP();
 
   //to-do: state machine
   //to-do: flash logging handler
@@ -120,7 +125,100 @@ void loop() {
 
   while (millis() - loopBegin < 10) {}
 }
+///////////////////////////////////////////////////
+//                  State Machine                //
+///////////////////////////////////////////////////
+#define ACCEL_FLIGHT_THRESHOLD   30    //m/s^2
+#define T_APOGEE_LOCKOUT         7000  //msec
+#define T_APOGEE_OVERRIDE        13000 //msec
+#define T_BP_LOCKOUT             7000  //msec
+#define T_MAIN_LOCKOUT           2000  //msec (PAST T_APOGEE)
+#define APOGEE_DROP              20    //m
+#define MAIN_DEPLOY_ALT          457   //m (AGL)
+#define BP_ALT_THRESHOLD         304   //m (AGL)
 
+uint32_t flightBeginTime;              //time flight mode entered
+uint32_t apogeeTime;                   //time apogee reached
+//uint32_t FCTime;                     //time handleState called (msec); initialized earlier
+//State recState;                      //state recieved from ground station if manually advanced; initialized earlier
+//State currentState;                  //state rocket is in; initialized earlier
+
+void handleState() {
+  switch(currentState) {
+    case GROUND_TESTING:                                                                      //If we are in ground testing mode
+      if (recState == PRE_FLIGHT) {                                                             //If we recieve the signal to enter preflight mode
+        currentState = PRE_FLIGHT;                                                              //Enter into preflight mode
+        mygyro.zeroRollPitchYaw();                                                              //Zero roll, pitch, yaw        
+        accel.zeroIntegratedVelo();                                                             //Zero integrated velocity 
+        //to-do: zero roll control, airbrakes                                                   //Zero roll control, airbrakes
+        //to-do: disable power board protections/screw switch                                   //Disable BMS protections and screw switch functionality
+        //to-do: start flash logging                                                            //Start logging data
+      }
+      break;
+    case PRE_FLIGHT:                                                                          //If we are in preflight mode
+      if ((recState == FLIGHT) ||                                                               //If we recieve the signal to enter 
+      (accel.getVerticalAccelMinusGravity() > ACCEL_FLIGHT_THRESHOLD)) {                        //Or If we experience large acceleration
+        currentState = FLIGHT;                                                                    //Enter into flight mode
+        flightBeginTime = millis();                                                               //Mark the time we entered flight mode
+        FCtime = millis();                                                                        //Update FCtime so it is never less than flightBeginTime
+        mygyro.zeroRollPitchYaw();                                                                //Zero roll, pitch, yaw
+        //to-do: begin roll control, airbrakes                                                    //Begin roll control, airbrakes
+        //to-do: vtx 8W                                                                           //Set VTX to 8W power
+      }
+      break;
+    case FLIGHT:                                                                              //If we are in flight state
+      if (FCtime - flightBeginTime > T_APOGEE_LOCKOUT) {                                        //If we are past the apogee lockout time
+        if (recState == APOGEE ||                                                                 //If we recieve the signal to enter apogee state
+        ((gps.getFixType() == 3) && (gps.getMaxAlt() - gps.getHeight() > APOGEE_DROP)) ||         //Or If we have 3D GPS fix and have dropped an amount from GPS max alt
+        (barometer.getMaxAlt() - barometer.getFilteredAltitude() > APOGEE_DROP)) {                //Or If we have dropped an amount as measured by barometer
+          currentState = APOGEE;                                                                    //Advance to Apogee
+        }
+      }
+      if (FCtime - flightBeginTime > T_APOGEE_OVERRIDE) {                                     //If we have passed apogee override time
+        currentState = APOGEE;                                                                  //Advance to Apogee
+      }
+      if (currentState == APOGEE) {                                                           //If we are advancing to apogee
+        apogeeTime = millis();                                                                  //Mark time we entered apogee
+        FCtime = millis();                                                                      //Update FCtime so it is never less than apogeeTime
+        for (uint8_t i = 0; i < 2; i++) {                                                       //Fire Pyros 0, 1
+          pyros.arm(i);
+          pyros.fire(i);
+        }
+        //to-do: disable roll control, airbrakes
+      }
+      break;
+    case APOGEE:                                                                              //If we are in apogee state
+      if (FCtime - apogeeTime > T_MAIN_LOCKOUT) {                                               //If we are past main lockout time
+        if (recState == MAIN ||                                                                   //If we recieve signal to enter main state
+        (gps.getFixType() == 3 && gps.getHeight() < MAIN_DEPLOY_ALT) ||                           //Or If we have 3D GPS fix and are less than some amount AGL
+        (barometer.getFilteredAltitude() < MAIN_DEPLOY_ALT)) {                                    //Or If the barometer says we are less than some amount AGL
+          currentState = MAIN;                                                                    //Advance to main state
+          pyros.arm(2);                                                                           //Fire Pyro 2
+          pyros.fire(2);                                                                        
+        }
+      }
+      break;
+    case MAIN:                                                                                //If we are in main state
+      if (recState == END) {                                                                    //If we recieve signal to enter into end state
+        currentState = GROUND_TESTING;                                                          //Go back to ground testing mode
+        //to-do: end logging                                                                    //End logging
+        //to-do: enable bms protections/screw switch                                            //Enable BMS protections/screw switch
+      }
+      break;
+  }
+}
+
+void handleBP() {
+  if ((currentState > PRE_FLIGHT) && (FCtime - flightBeginTime > T_BP_LOCKOUT)) {             //If we are past pre-flight mode and we are past BP lockout timer
+    if ((gps.getFixType() == 3 && gps.getHeight() < BP_ALT_THRESHOLD) &&                        //If we have 3D GPS fix and are less than some amount AGL
+    (barometer.getFilteredAltitude() < BP_ALT_THRESHOLD)) {                                     //And If the barometer says we are less than some amount AGL
+      for (uint8_t i = 3; i < 5; i++) {                                                         //Fire Pyros 3, 4
+        pyros.arm(i);
+        pyros.fire(i);
+      }
+    }
+  }
+}
 
 ///////////////////////////////////////////////////
 //                    Telemetry                  //
@@ -209,7 +307,6 @@ void constructTelemetryPacket() {
   memcpy(&telemPkt[78], &maxGPSAlt, 2);
 
   //Time
-  uint32_t FCtime = millis();
   memcpy(&telemPkt[80], &FCtime, 4);
 
   //Packet Number
