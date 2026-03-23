@@ -150,6 +150,7 @@ uint32_t apogeeTime;                   //time apogee reached
 //uint32_t FCtime;                     //time handleState called (msec); initialized earlier
 //State recState;                      //state recieved from ground station if manually advanced; initialized earlier
 //State currentState;                  //state rocket is in; initialized earlier
+bool bpFired = false;
 
 void handleState() {
   switch(currentState) {
@@ -196,11 +197,12 @@ void handleState() {
       }
       break;
     case APOGEE:                                                                              //If we are in apogee state
-      if (FCtime - apogeeTime > T_BP_DEPLOY) {                                                  //If we are more than some amound past apogee
+      if (FCtime - apogeeTime > T_BP_DEPLOY && !bpFired) {                                        //If we are more than some amound past apogee
         for (uint8_t i = 3; i < 5; i++) {                                                         //Fire Pyros 3, 4
           pyros.arm(i);
           pyros.fire(i);
         }
+        bpFired = true;
       }
       if (FCtime - apogeeTime > T_MAIN_LOCKOUT) {                                               //If we are past main lockout time
         if (recState == MAIN ||                                                                   //If we recieve signal to enter main state
