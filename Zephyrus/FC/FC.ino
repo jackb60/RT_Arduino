@@ -326,8 +326,8 @@ void constructTelemetryPacket() {
   uint16_t cell3 = pwr.getCell3Voltage();
   uint16_t totalCurrent = pwr.getTotalCurrent();
   memcpy(&telemPkt[87], &cell1, 2);
-  memcpy(&telemPkt[87], &cell1, 2);
-  memcpy(&telemPkt[87], &cell1, 2);
+  memcpy(&telemPkt[87], &cell2, 2);
+  memcpy(&telemPkt[87], &cell3, 2);
   telemPkt[95] = pwr.getTemp() * 2.0;
   telemPkt[96] = pwr.getProtectionStatus();
   telemPkt[97] = pwr.getProtectionsEnabled();
