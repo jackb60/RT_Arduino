@@ -446,7 +446,7 @@ void updateAirbrakes() {
   sendToAirbrakes.vel_z = accel.getIntegratedVelo();
   sendToAirbrakes.accel_z = accel.getAccelZ();
   sendToAirbrakes.apogeeReached = currentState > FLIGHT;
-  myairbrakes.update(FCtime / 1000.0, sendToAirbrakes);
+  myairbrakes.update((FCtime - flightBeginTime)/1000, sendToAirbrakes);
 }
 
 uint16_t degToUsAirbrakes(float degrees) {
