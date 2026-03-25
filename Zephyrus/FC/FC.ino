@@ -27,6 +27,20 @@
 #define AIRBRAKES_CLOSED_ANGLE -25
 #define AIRBRAKES_OPEN_ANGLE 25
 
+#define SERVO2OFFSET 0
+#define SERVO3OFFSET 0
+
+bool airbrakesEnabled;
+bool rollControlEnabled;
+
+float airbrakesSetAngle = AIRBRAKES_CLOSED_ANGLE;
+float rollControlSetAngle = 0;
+
+uint16_t servo0us;
+uint16_t servo1us = 1500; //unused
+uint16_t servo2us;
+uint16_t servo3us;
+
 HardwareSerial debugSer(PC7, PC6);
 HardwareSerial gpsSer(PB12, PB13);
 HardwareSerial CAM0_SER(PE7, PE8);
@@ -91,8 +105,8 @@ void setup() {
   myTim->setMode(4, TIMER_OUTPUT_COMPARE_PWM1, PD15);
   myTim->setOverflow(20000, MICROSEC_FORMAT);
   myTim->setCaptureCompare(1, degToUsAirbrakes(AIRBRAKES_CLOSED_ANGLE), MICROSEC_COMPARE_FORMAT);
-  myTim->setCaptureCompare(3, degToUsRollControl(0), MICROSEC_COMPARE_FORMAT);
-  myTim->setCaptureCompare(4, degToUsRollControl(0), MICROSEC_COMPARE_FORMAT);
+  myTim->setCaptureCompare(3, degToUsRollControl(SERVO2OFFSET), MICROSEC_COMPARE_FORMAT);
+  myTim->setCaptureCompare(4, degToUsRollControl(SERVO3OFFSET), MICROSEC_COMPARE_FORMAT);
   myTim->attachInterrupt(Update_IT_callback);
   myTim->resume();
 
@@ -131,9 +145,14 @@ void loop() {
 
   FCtime = millis();
   handleState();
-  myrollcontrol.update((FCtime - flightBeginTime) / 1000.0, barometer.getFilteredAltitude(), 
-                    accel.getIntegratedVelo(), mygyro.getRoll(), mygyro.getRollRate());
-  updateAirbrakes();
+  if (rollControlEnabled) {
+    myrollcontrol.update((FCtime - flightBeginTime) / 1000.0, barometer.getFilteredAltitude(), 
+                          accel.getIntegratedVelo(), mygyro.getRoll(), mygyro.getRollRate());
+  }
+  
+  if (airbrakesEnabled) {
+    updateAirbrakes();
+  }
 
   //to-do: flash logging handler
 
@@ -195,7 +214,7 @@ void handleState() {
         FCtime = millis();                                                                        //Update FCtime so it is never less than flightBeginTime
         mygyro.zeroRollPitchYaw();                                                                //Zero roll, pitch, yaw
         //to-do: begin roll control, airbrakes                                                    //Begin roll control, airbrakes
-        //to-do: vtx 8W                                                                           //Set VTX to 8W power
+        myVTX.setPower(3);                                                                        //Set VTX to 8W power
       }
       break;
     case FLIGHT:                                                                              //If we are in flight state
@@ -276,7 +295,12 @@ void constructTelemetryPacket() {
   }
 
   //Servos
-  //to-do
+  telemPkt[10] = servo0us & 0xFF;
+  telemPkt[11] = (servo0us >> 8) | ((servo1us & 0x0F) << 4);
+  telemPkt[12] = (servo1us >> 4) & 0xFF;
+  telemPkt[13] = servo2us & 0xFF;
+  telemPkt[14] = (servo2us >> 8) | ((servo3us & 0x0F) << 4);
+  telemPkt[15] = (servo3us >> 4) & 0xFF;
 
   //Accel
   int32_t accelRawX = accel.getRawX();
@@ -495,7 +519,22 @@ float dpToDeg(float dp) {
 }
 
 void Update_IT_callback() {
-  myTim->setCaptureCompare(1, degToUsAirbrakes(dpToDeg(myairbrakes.getDeployment())), MICROSEC_COMPARE_FORMAT);
-  myTim->setCaptureCompare(3, degToUsRollControl(myrollcontrol.getAngle()), MICROSEC_COMPARE_FORMAT);
-  myTim->setCaptureCompare(4, degToUsRollControl(myrollcontrol.getAngle()), MICROSEC_COMPARE_FORMAT);
+  if (airbrakesEnabled) {
+    myTim->setCaptureCompare(1, degToUsAirbrakes(dpToDeg(myairbrakes.getDeployment())), MICROSEC_COMPARE_FORMAT);
+    servo0us = degToUsAirbrakes(dpToDeg(myairbrakes.getDeployment()));
+  } else {
+    myTim->setCaptureCompare(1, degToUsAirbrakes(airbrakesSetAngle), MICROSEC_COMPARE_FORMAT);
+    servo0us = degToUsAirbrakes(airbrakesSetAngle);
+  }
+  if (rollControlEnabled) {
+    myTim->setCaptureCompare(3, degToUsRollControl(myrollcontrol.getAngle() + SERVO2OFFSET), MICROSEC_COMPARE_FORMAT);
+    myTim->setCaptureCompare(4, degToUsRollControl(myrollcontrol.getAngle() + SERVO3OFFSET), MICROSEC_COMPARE_FORMAT);
+    servo2us = degToUsRollControl(myrollcontrol.getAngle() + SERVO2OFFSET);
+    servo3us = degToUsRollControl(myrollcontrol.getAngle() + SERVO3OFFSET);
+  } else {
+    myTim->setCaptureCompare(3, degToUsRollControl(rollControlSetAngle + SERVO2OFFSET), MICROSEC_COMPARE_FORMAT);
+    myTim->setCaptureCompare(4, degToUsRollControl(rollControlSetAngle + SERVO3OFFSET), MICROSEC_COMPARE_FORMAT);
+    servo2us = degToUsRollControl(rollControlSetAngle + SERVO2OFFSET);
+    servo3us = degToUsRollControl(rollControlSetAngle + SERVO3OFFSET);
+  }
 }
