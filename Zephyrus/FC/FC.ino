@@ -480,12 +480,22 @@ void readTelem() {
                 recValid = false;
               }
             }
-            if (recValid && currentState == GROUND_TESTING) {
+            if (recValid) {
               for(uint8_t i = 0; i < 8; i++) {
                 if ((recBuf[12] >> i) & 0b1) {
                   pyros.arm(i);
                 }
               }
+            }
+            break;
+          case 0x02:
+            for (uint8_t i = 1; i < 12; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid) {
+              recState = static_cast<State>(recBuf[12]);
             }
             break;
           case 0x06:
@@ -494,7 +504,7 @@ void readTelem() {
                 recValid = false;
               }
             }
-            if (recValid && currentState == GROUND_TESTING) {
+            if (recValid) {
               for(uint8_t i = 0; i < 8; i++) {
                 if ((recBuf[12] >> i) & 0b1) {
                   pyros.fire(i);
@@ -509,10 +519,163 @@ void readTelem() {
               }
             }
             if (recValid && currentState == GROUND_TESTING) {
-              float angle = *((float*) &recBuf[9]);
-              myTim->setCaptureCompare(1, degToUsAirbrakes(angle), MICROSEC_COMPARE_FORMAT);
+              airbrakesSetAngle = *((float*) &recBuf[9]);
+              airbrakesEnabled = false;
             }
             break;
+          case 0x05:
+            for (uint8_t i = 1; i < 9; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+              rollControlSetAngle = *((float*) &recBuf[9]);
+              rollControlEnabled = false;
+            }
+            break;
+          case 0x04:
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+              updateRollControl();
+              rollControlEnabled = true;
+            }
+            break;
+          case 0x08:
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+              airbrakesSetAngle = AIRBRAKES_CLOSED_ANGLE;
+              rollControlSetAngle = 0;
+              airbrakesEnabled = false;
+              rollControlEnabled = false;
+            }
+            break;
+          case 0x09:
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+                mygyro.zeroRollPitchYaw();
+            }
+            break;
+          case 0x0A:
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+                barometer.zeroAlt();
+                gps.zeroAlt();
+            }
+            break;
+          case 0x0B:
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+              accel.zeroIntegratedVelo();
+            }
+            break;
+          case 0x10: //EMERGENCY PISTON
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid) {
+              for (uint8_t i = 0; i < 2; i++) {                                                       //Fire Pyros 0, 1
+                pyros.arm(i);
+                pyros.fire(i);
+              }
+            }
+            break;
+          case 0x11: //EMERGENCY BP
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid) {
+              for (uint8_t i = 3; i < 5; i++) {                                                         //Fire Pyros 3, 4
+                pyros.arm(i);
+                pyros.fire(i);
+              }
+            }
+            break;
+          case 0x12: //EMERGENCY TD
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid) {
+              pyros.arm(2);
+              pyros.fire(2);
+            }
+            break;
+          case 0x13: //EMERGENCY ALL
+            for (uint8_t i = 1; i < 13; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid) {
+              for (uint8_t i = 0; i < 5; i++) {                                                       //Fire Pyros 0, 1
+                pyros.arm(i);
+                pyros.fire(i);
+              }
+            }
+            break;
+          case 0x14: //VTX PWR
+            for (uint8_t i = 1; i < 12; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+              if (recBuf[12] > 3) {
+                recBuf[12] = 3;
+              }
+              myVTX.setPower(recBuf[12]);
+            }
+            break;
+          case 0x15: //Converters
+            for (uint8_t i = 1; i < 12; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+              for (uint8_t i = 0; i < 6; i++) {
+                pwrCommand.convertersEnabled[i] = (recBuf[12] >> i) & 0x01;
+              }
+            }
+            break;
+          case 0x16: //BMS PROTECTIONS
+            for (uint8_t i = 1; i < 12; i++) {
+              if (recBuf[i] != 0x00) {
+                recValid = false;
+              }
+            }
+            if (recValid && currentState == GROUND_TESTING) {
+              pwrCommand.BMS.protectionsEnabled = recBuf[12];
+              pwrCommand.BMS.screwSwitchEnabled = recBuf[12];
+            }
+            break;
+          
         }
       } else {
         badPackets++;
