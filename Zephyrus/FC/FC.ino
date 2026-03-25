@@ -198,7 +198,9 @@ void handleState() {
       if (recState == PRE_FLIGHT) {                                                             //If we recieve the signal to enter preflight mode
         currentState = PRE_FLIGHT;                                                              //Enter into preflight mode
         mygyro.zeroRollPitchYaw();                                                              //Zero roll, pitch, yaw        
-        accel.zeroIntegratedVelo();                                                             //Zero integrated velocity 
+        accel.zeroIntegratedVelo();                                                             //Zero integrated velocity
+        gps.zeroAlt();                                                                          //Zero alt
+        barometer.zeroAlt();
         rollControlSetAngle = 0;                                                                //Zero roll control, airbrakes 
         airbrakesSetAngle = AIRBRAKES_CLOSED_ANGLE;
         airbrakesEnabled = false;
