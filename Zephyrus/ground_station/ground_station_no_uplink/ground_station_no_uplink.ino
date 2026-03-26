@@ -51,9 +51,12 @@ void loop() {
     Serial.write(recBuf, 128);
     Serial.write(cc.rssi());
     Serial.write(gps.getFixType());
-    Serial.write(gps.getLat());
-    Serial.write(gps.getLon());
-    Serial.write(gps.getHeight());
+    int32_t lat = gps.getLat();
+    int32_t lon = gps.getLon();
+    uint32_t alt = gps.getHeight();
+    Serial.write((uint8_t*) &lat, 4);
+    Serial.write((uint8_t*) &lon, 4);
+    Serial.write((uint8_t*) &alt, 4);
     cc.Rx(128);   
   }
 }
