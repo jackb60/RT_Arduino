@@ -1,5 +1,3 @@
-
-
 int pos = 0;
 int mode = 0;
 float airbrakesCtrlStartTime = 0;
