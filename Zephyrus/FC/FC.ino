@@ -456,11 +456,13 @@ void sendTelemetryPacket() {
   if (cc.status() == 7) {
     cc.flushTx();
   }
+  cc.freq915();
   cc.Tx(telemPkt, 128);
 }
 
 void readTelem() {
   if(cc.status() == 0) {
+    cc.freq917();
     cc.Rx(16);
   }
   if(cc.avail() >= 16) {

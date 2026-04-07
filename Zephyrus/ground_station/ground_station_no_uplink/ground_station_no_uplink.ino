@@ -43,14 +43,6 @@ void setup() {
   
 void loop() {
   gps.update();
-  while(cc.avail() < 128 && cc.status() != 6) {
-    uint8_t avail = cc.avail();
-    delay(5);
-    if (cc.avail() == avail) {
-      cc.flushRx();
-      cc.Rx(128);
-    }
-  }
   if(cc.status() == 6) {
     cc.flushRx();
     cc.Rx(128);
