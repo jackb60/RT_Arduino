@@ -48,6 +48,10 @@ void loop() {
     cc.Rx(128);
   }
 
+  if(cc.status() == 0) {
+    cc.Rx(128);
+  }
+
   if(cc.avail() == 128) {
     Serial.write(0xAB);
     Serial.write(0xAB);

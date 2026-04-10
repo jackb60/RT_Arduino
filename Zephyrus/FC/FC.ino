@@ -28,7 +28,7 @@
 #define AIRBRAKES_OPEN_ANGLE -117.0f
 
 #define SERVO2OFFSET -0.5f
-#define SERVO3OFFSET -15.0f
+#define SERVO3OFFSET -7.0f
 
 volatile bool airbrakesEnabled = false;
 volatile bool rollControlEnabled = false;
@@ -178,7 +178,7 @@ void loop() {
 //                  State Machine                //
 ///////////////////////////////////////////////////
 #define ACCEL_FLIGHT_THRESHOLD   30    //m/s^2
-#define T_APOGEE_LOCKOUT         27000 //msec
+#define T_APOGEE_LOCKOUT         26000 //msec
 #define T_APOGEE_OVERRIDE        35000 //msec
 #define T_BP_DEPLOY1             3000  //msec (PAST T_APOGEE)
 #define T_BP_DEPLOY2             5000  //msec (PAST T_APOGEE)

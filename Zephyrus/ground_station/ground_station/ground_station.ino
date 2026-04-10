@@ -38,6 +38,7 @@ void setup() {
     digitalWrite(PA0, 1);
   }
   cc.simpleConfig();
+  cc.freq915();
   cc.Rx(128);
 }
   
@@ -46,6 +47,10 @@ void loop() {
   if(cc.status() == 6) {
     cc.flushRx();
     cc.freq915();
+    cc.Rx(128);
+  }
+
+  if(cc.status() == 0) {
     cc.Rx(128);
   }
 
@@ -93,7 +98,7 @@ void loop() {
         txBuf[i] = 0;
       }
     }
-    cc.freq917();
+    cc.freq920();
     cc.Tx(txBuf, 16);
     pyros = 0;
     while (cc.status() != 0) {}
