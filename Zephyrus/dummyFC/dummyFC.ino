@@ -209,9 +209,11 @@ void handleState() {
         currentState = PRE_FLIGHT;                                                              //Enter into preflight mode
         allocateFlash();                                                                        //Clear some flash
         loggingEnabled = true;                                                                  //Begin logging
-        mygyro.update();                                                                        //Prevent large dt on first update post zero
+        mygyro.update(simTime);                                                                        //Prevent large dt on first update post zero
+
         mygyro.zeroRollPitchYaw();                                                              //Zero roll, pitch, yaw
-        accel.update(currentState);                                                             //Prevent large dt on first update post zero        
+        accel.update(currentState, simTime);
+
         accel.zeroIntegratedVelo();                                                             //Zero integrated velocity
         gps.zeroAlt();                                                                          //Zero alt
         barometer.zeroAlt();
