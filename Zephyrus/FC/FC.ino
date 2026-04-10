@@ -180,7 +180,8 @@ void loop() {
 #define ACCEL_FLIGHT_THRESHOLD   30    //m/s^2
 #define T_APOGEE_LOCKOUT         27000 //msec
 #define T_APOGEE_OVERRIDE        35000 //msec
-#define T_BP_DEPLOY              5000  //msec (PAST T_APOGEE)
+#define T_BP_DEPLOY1             3000  //msec (PAST T_APOGEE)
+#define T_BP_DEPLOY2             5000  //msec (PAST T_APOGEE)
 #define T_MAIN_LOCKOUT           55000 //msec (PAST T_APOGEE)
 #define APOGEE_DROP              20    //m
 #define MAIN_DEPLOY_ALT          457   //m (AGL)
@@ -190,7 +191,9 @@ uint32_t apogeeTime;                   //time apogee reached
 //uint32_t FCtime;                     //time handleState called (msec); initialized earlier
 //State recState;                      //state recieved from ground station if manually advanced; initialized earlier
 //State currentState;                  //state rocket is in; initialized earlier
-bool bpFired = false;
+bool bpFired1 = false;
+bool bpFired2 = false;
+bool baroMaxAltReset = false;
 
 void handleState() {
   switch(currentState) {
@@ -232,9 +235,13 @@ void handleState() {
       break;
     case FLIGHT:                                                                              //If we are in flight state
       if (FCtime - flightBeginTime > T_APOGEE_LOCKOUT) {                                        //If we are past the apogee lockout time
+        if (!baroMaxAltReset) {
+          barometer.resetMaxAlt();
+          baroMaxAltReset = true;
+        }
         if (recState == APOGEE ||                                                                 //If we recieve the signal to enter apogee state
-        ((gps.getFixType() == 3) && (gps.getMaxAlt() - gps.getHeight() > APOGEE_DROP)) ||         //Or If we have 3D GPS fix and have dropped an amount from GPS max alt
-        (barometer.getMaxAlt() - barometer.getFilteredAltitude() > APOGEE_DROP)) {                //Or If we have dropped an amount as measured by barometer
+        ((gps.getFixType() == 3) && (gps.getMaxAlt() > gps.getHeight() + APOGEE_DROP)) ||         //Or If we have 3D GPS fix and have dropped an amount from GPS max alt
+        (barometer.getMaxAlt() > barometer.getFilteredAltitude() + APOGEE_DROP)) {                //Or If we have dropped an amount as measured by barometer
           currentState = APOGEE;                                                                    //Advance to Apogee
         }
       }
@@ -255,12 +262,17 @@ void handleState() {
       }
       break;
     case APOGEE:                                                                              //If we are in apogee state
-      if (FCtime - apogeeTime > T_BP_DEPLOY && !bpFired) {                                      //If we are more than some amount past apogee
+      if (FCtime - apogeeTime > T_BP_DEPLOY1 && !bpFired1) {                                      //If we are more than some amount past apogee
         for (uint8_t i = 3; i < 5; i++) {                                                         //Fire Pyros 3, 4
           pyros.arm(i);
           pyros.fire(i);
         }
-        bpFired = true;
+        bpFired1 = true;
+      }
+      if (FCtime - apogeeTime > T_BP_DEPLOY2 && !bpFired2) {                                      //If we are more than some amount past apogee
+        pyros.arm(5);
+        pyros.fire(5);
+        bpFired2 = true;
       }
       if (FCtime - apogeeTime > T_MAIN_LOCKOUT) {                                               //If we are past main lockout time
         if (recState == MAIN ||                                                                   //If we recieve signal to enter main state
@@ -462,7 +474,7 @@ void sendTelemetryPacket() {
 
 void readTelem() {
   if(cc.status() == 0) {
-    cc.freq917();
+    cc.freq920();
     cc.Rx(16);
   }
   if(cc.avail() >= 16) {
