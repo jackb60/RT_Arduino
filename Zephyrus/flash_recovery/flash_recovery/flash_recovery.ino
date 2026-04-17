@@ -53,7 +53,7 @@ void loop() {
       debugSer.write((uint8_t*) &lat, 4);
       debugSer.write((uint8_t*) &lon, 4);
       debugSer.write((uint8_t*) &alt, 4);
+      delay(10);
     }
-    delay(10);
   }
 }
